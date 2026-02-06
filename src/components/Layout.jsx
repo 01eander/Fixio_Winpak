@@ -7,11 +7,13 @@ import { useStore } from '../hooks/useStore';
 export default function Layout({ children }) {
     const [location] = useLocation();
     const { role, setRole } = useStore();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
     const navItems = [
         { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+        ...(role === 'ADMIN' ? [{ label: 'Bitácoras', path: '/bitacoras', icon: FileText }] : []),
         { label: 'Catálogos', path: '/catalogs', icon: FolderOpen },
-        { label: 'Ordenes', path: '/interventions', icon: FileText },
+        ...(role !== 'ADMIN' ? [{ label: 'Ordenes', path: '/interventions', icon: FileText }] : []),
     ];
 
     const [showNotifications, setShowNotifications] = React.useState(false);
@@ -34,40 +36,67 @@ export default function Layout({ children }) {
             {/* Floating Role Switcher - Demo Only */}
             <button
                 onClick={toggleRole}
-                className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-[#1e293b] text-white rounded-full shadow-2xl border border-white/10 hover:bg-[#334155] transition-all group"
+                className="fixed bottom-6 left-6 z-[60] flex items-center gap-2 px-4 py-2 bg-[#1e293b] text-white rounded-full shadow-2xl border border-white/10 hover:bg-[#334155] transition-all group"
                 title="Cambiar rol (Demo)"
             >
                 {role === 'ADMIN' ? <Shield size={16} className="text-purple-400 group-hover:scale-110 transition-transform" /> : <Users size={16} className="text-blue-400 group-hover:scale-110 transition-transform" />}
                 <span className="text-xs font-bold uppercase tracking-wider">{role} MODE</span>
             </button>
 
+            {/* Mobile Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className="glass-panel m-4 flex flex-col" style={{ height: 'calc(100vh - 2rem)' }}>
-                <div className="p-6 border-b border-[var(--border-glass)]">
+            <aside
+                className={`
+                    fixed md:static inset-y-0 left-0 z-50 w-[280px] md:w-auto
+                    glass-panel md:glass-panel-none m-0 md:m-4 
+                    flex flex-col transition-transform duration-300 ease-in-out
+                    ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                    md:bg-transparent md:border-none md:shadow-none
+                `}
+                style={{ height: 'calc(100vh - 2rem)' }}
+            >
+                <div className="p-6 border-b border-[var(--border-glass)] relative">
+                    {/* Mobile Close Button */}
+                    <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="absolute top-4 right-4 md:hidden text-[var(--text-muted)] hover:text-white"
+                    >
+                        ✕
+                    </button>
+
                     <img
                         src={logo}
                         alt="App Logo"
                         className="w-full h-auto mb-4 rounded-lg shadow-lg opacity-90"
                     />
                     <h1 className="text-2xl font-bold text-gradient">Oleander Fixio</h1>
-                    <p className="text-sm text-[var(--text-muted)]">Maintenance System</p>
+                    <p className="text-sm text-[var(--text-muted)]">Winpak Maintenance System</p>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location === item.path;
                         return (
                             <Link key={item.path} href={item.path}>
-                                <a className={`group flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 w-full mb-2 ${isActive
-                                    ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-lg shadow-blue-500/20 translate-x-1'
-                                    : 'bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] hover:text-white hover:translate-x-1 border border-transparent hover:border-[var(--border-glass)]'
-                                    }`}>
+                                <div
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`group flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 w-full mb-2 cursor-pointer ${isActive
+                                        ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-lg shadow-blue-500/20 translate-x-1'
+                                        : 'bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] hover:text-white hover:translate-x-1 border border-transparent hover:border-[var(--border-glass)]'
+                                        }`}>
                                     <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : 'bg-black/20 group-hover:bg-black/40'}`}>
                                         <Icon size={22} className={isActive ? 'text-white' : ''} />
                                     </div>
                                     <span className="font-bold text-lg tracking-wide">{item.label}</span>
-                                </a>
+                                </div>
                             </Link>
                         );
                     })}
@@ -84,12 +113,15 @@ export default function Layout({ children }) {
             {/* Main Content */}
             <main className="p-4 h-screen overflow-y-auto w-full">
                 {/* Header */}
-                <header className="glass-panel mb-6 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+                <header className="glass-panel mb-6 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
                     <div className="flex items-center gap-4">
-                        <button className="md:hidden btn-icon">
-                            <Menu size={20} />
-                        </button>
-                        <h2 className="text-xl font-semibold text-[var(--text-main)]">
+                        {/* Mobile App Name */}
+                        <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent md:hidden">
+                            Oleander Fixio
+                        </h2>
+
+                        {/* Desktop Page Title */}
+                        <h2 className="text-xl font-semibold text-[var(--text-main)] hidden md:block">
                             {navItems.find(i => i.path === location)?.label || 'Panel'}
                         </h2>
                     </div>
@@ -125,7 +157,7 @@ export default function Layout({ children }) {
                             )}
                         </div>
 
-                        <div className="flex items-center gap-3 pl-4 border-l border-[var(--border-glass)]">
+                        <div className="flex items-center gap-3 pl-4 border-l border-[var(--border-glass)] hidden sm:flex">
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-medium">{role === 'ADMIN' ? 'Fermin Montoya' : 'Operador Demo'}</p>
                                 <p className="text-xs text-[var(--text-muted)]">{role === 'ADMIN' ? 'Supervisor' : 'Técnico Nivel 1'}</p>
@@ -134,11 +166,19 @@ export default function Layout({ children }) {
                                 <User size={20} className={role === 'OPERATOR' ? 'text-blue-400' : ''} />
                             </div>
                         </div>
+
+                        {/* Mobile Hamburger - MOVED TO RIGHT */}
+                        <button
+                            className="md:hidden btn-icon text-white"
+                            onClick={() => setIsMobileMenuOpen(true)}
+                        >
+                            <Menu size={24} />
+                        </button>
                     </div>
                 </header>
 
                 {/* Page Content */}
-                <div className="fade-in">
+                <div className="fade-in pb-20 md:pb-0">
                     {children}
                 </div>
             </main>

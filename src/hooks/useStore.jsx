@@ -8,6 +8,11 @@ export function StoreProvider({ children }) {
     const [interventions, setInterventions] = useState(INITIAL_INTERVENTIONS);
     const [role, setRole] = useState('ADMIN'); // 'ADMIN' | 'OPERATOR'
 
+    // Derived current user for demo purposes
+    // ADMIN -> ID 1 (Admin User)
+    // OPERATOR -> ID 2 (Operador Juan)
+    const currentUserId = role === 'ADMIN' ? 1 : 2;
+
     // Action to add intervention and deduct stock
     const addIntervention = (interventionData) => {
         const newIntervention = {
@@ -31,6 +36,12 @@ export function StoreProvider({ children }) {
         });
     };
 
+    const updateInterventionStatus = (id, newStatus) => {
+        setInterventions(prev => prev.map(inter =>
+            inter.id === parseInt(id) ? { ...inter, status: newStatus } : inter
+        ));
+    };
+
     return (
         <StoreContext.Provider value={{
             inventory,
@@ -38,8 +49,10 @@ export function StoreProvider({ children }) {
             users: USERS,
             units: UNITS,
             addIntervention,
+            updateInterventionStatus,
             role,
-            setRole
+            setRole,
+            currentUserId
         }}>
             {children}
         </StoreContext.Provider>

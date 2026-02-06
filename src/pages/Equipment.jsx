@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UNITS } from '../data/mockData';
-import { Search, Truck, ArrowLeft, Activity, QrCode } from 'lucide-react';
+import { Search, Truck, ArrowLeft, Activity, QrCode, FileDown, Table } from 'lucide-react';
 import { Link } from 'wouter';
 import QrModal from '../components/QrModal';
 
@@ -22,9 +22,25 @@ export default function Equipment() {
                     </Link>
                     <h2 className="text-2xl font-bold text-gradient">Catálogo de Equipos</h2>
                 </div>
-                <button className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                    <span>+ Insertar Nuevo</span>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => alert('Descargando PDF...')}
+                        className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
+                        title="Descargar PDF"
+                    >
+                        <FileDown size={20} />
+                    </button>
+                    <button
+                        onClick={() => alert('Descargando Excel...')}
+                        className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
+                        title="Descargar Excel"
+                    >
+                        <Table size={20} />
+                    </button>
+                    <button className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                        <span>+ Insertar Nuevo</span>
+                    </button>
+                </div>
             </div>
 
             <div className="flex justify-between items-center bg-[var(--bg-panel)] p-4 rounded-xl border border-[var(--border-glass)]">

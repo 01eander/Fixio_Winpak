@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../hooks/useStore';
 import { WAREHOUSES } from '../data/mockData';
-import { Search, Droplets, Wrench, ArrowLeft, QrCode } from 'lucide-react';
+import { Search, Droplets, Wrench, ArrowLeft, QrCode, FileDown, Table, ClipboardList } from 'lucide-react';
 import { Link } from 'wouter';
 import QrModal from '../components/QrModal';
 
@@ -30,9 +30,32 @@ export default function Inventory() {
                     </Link>
                     <h2 className="text-2xl font-bold text-gradient">Inventario Unificado</h2>
                 </div>
-                <button className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                    <span>+ Insertar Nuevo</span>
-                </button>
+                <div className="flex gap-2">
+                    <Link href="/inventory/audit">
+                        <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+                            <ClipboardList size={18} />
+                            <span>Inventario Cíclico</span>
+                        </button>
+                    </Link>
+
+                    <button
+                        onClick={() => alert('Descargando PDF...')}
+                        className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg transition-colors"
+                        title="Descargar PDF"
+                    >
+                        <FileDown size={20} />
+                    </button>
+                    <button
+                        onClick={() => alert('Descargando Excel...')}
+                        className="p-2 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg transition-colors"
+                        title="Descargar Excel"
+                    >
+                        <Table size={20} />
+                    </button>
+                    <button className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                        <span>+ Insertar Nuevo</span>
+                    </button>
+                </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">

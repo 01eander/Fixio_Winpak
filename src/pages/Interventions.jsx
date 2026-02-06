@@ -1,12 +1,70 @@
 import React, { useState } from 'react';
 import { useStore } from '../hooks/useStore';
 import InterventionForm from '../components/InterventionForm';
-import { Plus, Calendar, User, Truck, List, LayoutGrid } from 'lucide-react';
+import { Plus, Calendar, User, Truck, List, LayoutGrid, Wrench, Filter, Search } from 'lucide-react';
 
 export default function Interventions() {
-    const { interventions, users, units } = useStore();
+    const { interventions, users, units, role, currentUserId, updateInterventionStatus } = useStore();
     const [showForm, setShowForm] = useState(false);
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
+    const [dateFilter, setDateFilter] = useState('current'); // 'current', 'last3', 'custom'
+    const [customRange, setCustomRange] = useState({ start: '', end: '' });
+    const [selectedUnit, setSelectedUnit] = useState('all'); // 'all' or unitId
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'PENDING', 'IN_PROGRESS', 'COMPLETED'
+    const [techFilter, setTechFilter] = useState('all'); // 'all' or userId
+
+    // Filter interventions based on Role AND Date AND Unit AND Status AND Tech AND Search
+    const filteredInterventions = interventions.filter(i => {
+        // 1. Role Filter
+        if (role === 'OPERATOR') {
+            if (i.technicianId !== currentUserId && i.operatorId !== currentUserId) return false;
+        }
+
+        // 2. Unit Filter
+        if (selectedUnit !== 'all') {
+            if (i.unitId !== parseInt(selectedUnit)) return false;
+        }
+
+        // 3. Status Filter
+        if (statusFilter !== 'all') {
+            if (i.status !== statusFilter) return false;
+        }
+
+        // 4. Technician Filter
+        if (techFilter !== 'all') {
+            if (i.technicianId !== parseInt(techFilter)) return false;
+        }
+
+        // 5. Search Filter
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const matchesId = i.id.toString().includes(term);
+            const matchesDesc = i.description.toLowerCase().includes(term);
+            if (!matchesId && !matchesDesc) return false;
+        }
+
+        // 6. Date Filter
+        const date = new Date(i.date);
+        const now = new Date();
+
+        if (dateFilter === 'current') {
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        }
+        if (dateFilter === 'last3') {
+            const threeMonthsAgo = new Date();
+            threeMonthsAgo.setMonth(now.getMonth() - 3);
+            return date >= threeMonthsAgo;
+        }
+        if (dateFilter === 'custom' && customRange.start && customRange.end) {
+            const start = new Date(customRange.start);
+            const end = new Date(customRange.end);
+            end.setHours(23, 59, 59); // End of day
+            return date >= start && date <= end;
+        }
+
+        return true;
+    });
 
     // Helper to get names
     const getUnitName = (id) => units.find(u => u.id === id)?.name || 'Unknown Unit';
@@ -20,7 +78,7 @@ export default function Interventions() {
 
     // Helper to get items for column (default PENDING if not set)
     const getItemsForColumn = (status) => {
-        return interventions.filter(i => (i.status || 'PENDING') === status);
+        return filteredInterventions.filter(i => (i.status || 'PENDING') === status);
     };
 
     return (
@@ -48,20 +106,128 @@ export default function Interventions() {
                 </button>
             </div>
 
+            {/* Filter Bar */}
+            <div className="glass-panel p-3 mb-6 flex flex-wrap items-center gap-4 text-sm">
+                <div className="flex items-center gap-2 text-[var(--text-muted)] border-r border-white/10 pr-4">
+                    <Filter size={16} />
+                    <span className="font-semibold uppercase tracking-wider text-xs">Filtros</span>
+                </div>
+
+                {/* Date Filter */}
+                <div className="flex bg-black/20 rounded-lg p-1">
+                    <button
+                        onClick={() => setDateFilter('current')}
+                        className={`px-3 py-1.5 rounded-md transition-colors ${dateFilter === 'current' ? 'bg-[var(--primary)] text-white shadow-lg' : 'text-[var(--text-muted)] hover:text-white'}`}
+                    >
+                        Mes Actual
+                    </button>
+                    <button
+                        onClick={() => setDateFilter('last3')}
+                        className={`px-3 py-1.5 rounded-md transition-colors ${dateFilter === 'last3' ? 'bg-[var(--primary)] text-white shadow-lg' : 'text-[var(--text-muted)] hover:text-white'}`}
+                    >
+                        3 Meses
+                    </button>
+                    <button
+                        onClick={() => setDateFilter('custom')}
+                        className={`px-3 py-1.5 rounded-md transition-colors ${dateFilter === 'custom' ? 'bg-[var(--primary)] text-white shadow-lg' : 'text-[var(--text-muted)] hover:text-white'}`}
+                    >
+                        Rango
+                    </button>
+                </div>
+
+                {/* Units Filter */}
+                <div className="flex bg-black/20 rounded-lg p-1">
+                    <div className="relative">
+                        <select
+                            className="bg-transparent text-[var(--text-main)] text-sm px-3 py-1.5 pr-8 rounded-md outline-none focus:bg-white/5 cursor-pointer appearance-none"
+                            value={selectedUnit}
+                            onChange={(e) => setSelectedUnit(e.target.value)}
+                        >
+                            <option value="all" className="bg-[var(--bg-panel)]">Todos los Equipos</option>
+                            {units.map(u => (
+                                <option key={u.id} value={u.id} className="bg-[var(--bg-panel)] text-[var(--text-main)]">{u.name}</option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--text-muted)]">
+                            <Truck size={14} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex bg-black/20 rounded-lg p-1">
+                    <select
+                        className="bg-transparent text-[var(--text-main)] text-sm px-3 py-1.5 rounded-md outline-none focus:bg-white/5 cursor-pointer appearance-none"
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                        <option value="all" className="bg-[var(--bg-panel)]">Todos los Estados</option>
+                        <option value="PENDING" className="bg-[var(--bg-panel)]">Pendiente</option>
+                        <option value="IN_PROGRESS" className="bg-[var(--bg-panel)]">En Progreso</option>
+                        <option value="COMPLETED" className="bg-[var(--bg-panel)]">Terminado</option>
+                    </select>
+                </div>
+
+                {/* Technician Filter */}
+                <div className="flex bg-black/20 rounded-lg p-1">
+                    <select
+                        className="bg-transparent text-[var(--text-main)] text-sm px-3 py-1.5 rounded-md outline-none focus:bg-white/5 cursor-pointer appearance-none"
+                        value={techFilter}
+                        onChange={(e) => setTechFilter(e.target.value)}
+                    >
+                        <option value="all" className="bg-[var(--bg-panel)]">Todos los Técnicos</option>
+                        {users.filter(u => u.role !== 'OPERATOR').map(u => (
+                            <option key={u.id} value={u.id} className="bg-[var(--bg-panel)]">{u.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Search Bar */}
+                <div className="flex items-center bg-black/20 rounded-lg px-2 ml-auto">
+                    <Search size={14} className="text-[var(--text-muted)]" />
+                    <input
+                        type="text"
+                        placeholder="Buscar ID o descripción..."
+                        className="bg-transparent border-none text-sm text-[var(--text-main)] px-2 py-1.5 focus:outline-none w-48"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+
+                {/* Custom Date Range Component */}
+                {dateFilter === 'custom' && (
+                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-4 w-full mt-2 md:mt-0 md:w-auto">
+                        <input
+                            type="date"
+                            className="bg-[var(--bg-app)] border border-[var(--border-glass)] rounded px-2 py-1 text-[var(--text-main)] focus:border-[var(--primary)] outline-none"
+                            value={customRange.start}
+                            onChange={(e) => setCustomRange(p => ({ ...p, start: e.target.value }))}
+                        />
+                        <span className="text-[var(--text-muted)]">to</span>
+                        <input
+                            type="date"
+                            className="bg-[var(--bg-app)] border border-[var(--border-glass)] rounded px-2 py-1 text-[var(--text-main)] focus:border-[var(--primary)] outline-none"
+                            value={customRange.end}
+                            onChange={(e) => setCustomRange(p => ({ ...p, end: e.target.value }))}
+                        />
+                    </div>
+                )}
+            </div>
+
             {viewMode === 'list' ? (
                 <div className="space-y-4">
-                    {interventions.length === 0 ? (
-                        <div className="text-center p-10 text-[var(--text-muted)]">No hay intervenciones registradas.</div>
+                    {filteredInterventions.length === 0 ? (
+                        <div className="text-center p-10 text-[var(--text-muted)]">No hay intervenciones que coincidan con los filtros.</div>
                     ) : (
-                        interventions.map((inter) => (
+                        filteredInterventions.map((inter) => (
                             <div key={inter.id} className="glass-panel p-6 hover:translate-x-1 transition-transform">
                                 <div className="flex flex-col md:flex-row justify-between gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
                                             <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400 text-xs font-bold">MANTENIMIENTO: #{inter.id}</span>
                                             <span className={`px-2 py-1 rounded text-xs font-bold ${inter.status === 'COMPLETED' ? 'bg-green-500/20 text-green-400' :
-                                                    inter.status === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-400' :
-                                                        'bg-yellow-500/20 text-yellow-400'
+                                                inter.status === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-400' :
+                                                    'bg-yellow-500/20 text-yellow-400'
                                                 }`}>
                                                 {inter.status === 'COMPLETED' ? 'TERMINADO' :
                                                     inter.status === 'IN_PROGRESS' ? 'EN PROGRESO' : 'PENDIENTE'}
@@ -82,20 +248,44 @@ export default function Interventions() {
                                         </div>
                                     </div>
 
-                                    {/* Items Used Section */}
-                                    {inter.itemsUsed && inter.itemsUsed.length > 0 && (
-                                        <div className="md:w-1/3 bg-[var(--bg-app)] p-3 rounded-lg border border-[var(--border-glass)]">
-                                            <p className="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Recursos Bosquejados</p>
-                                            <ul className="space-y-1">
-                                                {inter.itemsUsed.map((item, idx) => (
-                                                    <li key={idx} className="flex justify-between text-sm">
-                                                        <span>{item.name || `Item #${item.itemId}`}</span>
-                                                        <span className="font-mono text-[var(--text-accent)]">x{item.quantity}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
+                                    {/* Activities & Items Section */}
+                                    <div className="md:w-1/3 space-y-3">
+                                        {/* Activities List */}
+                                        {inter.activities && inter.activities.length > 0 && (
+                                            <div className="bg-[var(--bg-app)] p-3 rounded-lg border border-[var(--border-glass)]">
+                                                <p className="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase flex items-center gap-1">
+                                                    <Wrench size={12} /> Actividades Realizadas
+                                                </p>
+                                                <ul className="space-y-1">
+                                                    {inter.activities.map((act, idx) => (
+                                                        <li key={idx} className="text-sm text-[var(--text-main)] flex items-start gap-2">
+                                                            <span className="text-[var(--primary)] mt-1">•</span>
+                                                            {act}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {/* Items Used List */}
+                                        {inter.itemsUsed && inter.itemsUsed.length > 0 && (
+                                            <div className="bg-[var(--bg-app)] p-3 rounded-lg border border-[var(--border-glass)]">
+                                                <p className="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase flex items-center gap-1">
+                                                    <Truck size={12} /> Recursos Utilizados
+                                                </p>
+                                                <ul className="space-y-1">
+                                                    {inter.itemsUsed.map((item, idx) => (
+                                                        <li key={idx} className="flex justify-between text-sm">
+                                                            <span>{item.name}</span>
+                                                            <span className={`font-mono font-bold ${item.isTool ? 'text-orange-400' : 'text-blue-400'}`}>
+                                                                x{item.quantity}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))
@@ -105,7 +295,25 @@ export default function Interventions() {
                 /* Kanban Board View */
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
                     {COLUMNS.map(col => (
-                        <div key={col.id} className="flex flex-col h-full bg-[var(--bg-app)]/30 rounded-xl border border-[var(--border-glass)] p-4">
+                        <div
+                            key={col.id}
+                            className="flex flex-col h-full bg-[var(--bg-app)]/30 rounded-xl border border-[var(--border-glass)] p-4 transition-colors data-[drag-over=true]:bg-white/5"
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                e.currentTarget.setAttribute('data-drag-over', 'true');
+                            }}
+                            onDragLeave={(e) => {
+                                e.currentTarget.setAttribute('data-drag-over', 'false');
+                            }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                e.currentTarget.setAttribute('data-drag-over', 'false');
+                                const interventionId = e.dataTransfer.getData("text/plain");
+                                if (interventionId) {
+                                    updateInterventionStatus(interventionId, col.id);
+                                }
+                            }}
+                        >
                             <div className={`flex items-center justify-between mb-4 pb-2 border-b border-[var(--border-glass)] ${col.color}`}>
                                 <h3 className="font-bold uppercase tracking-wider text-sm">{col.label}</h3>
                                 <span className="text-xs font-mono bg-white/10 px-2 py-0.5 rounded">
@@ -118,7 +326,7 @@ export default function Interventions() {
                                     <div
                                         key={inter.id}
                                         className="glass-panel p-4 cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-transform border-l-4 border-l-[var(--primary)]"
-                                        draggable="true" // Placeholder for interaction
+                                        draggable="true"
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData("text/plain", inter.id);
                                             e.dataTransfer.effectAllowed = "move";
@@ -138,7 +346,7 @@ export default function Interventions() {
                                 ))}
                                 {getItemsForColumn(col.id).length === 0 && (
                                     <div className="h-24 border-2 border-dashed border-[var(--border-glass)] rounded-lg flex items-center justify-center text-[var(--text-muted)] text-sm opacity-50">
-                                        Vacío
+                                        Arrastrar aquí
                                     </div>
                                 )}
                             </div>

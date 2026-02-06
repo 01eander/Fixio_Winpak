@@ -7,10 +7,18 @@ export default function InterventionForm({ onClose }) {
     const { users, units, inventory, addIntervention } = useStore();
 
     const [formData, setFormData] = useState({
-        unitId: '',
-        operatorId: '',
-        description: '',
-        itemsUsed: []
+        // Excel Columns Mapping:
+        // Folio (Auto), Fecha (Auto)
+        orderType: 'CORRECTIVE', // Tipo de Orden
+        area: '',                // Area
+        unitId: '',             // Maquina
+        activityType: 'MECHANIC',// Tipo de Actividad
+        description: '',        // Descripcion
+        operatorId: '',         // Empleado (Solicitante)
+        technicianId: '',       // Atendida por
+        targetDate: '',         // CLOSE TARGET
+        activities: [],          // List of job names added
+        itemsUsed: []           // Refaccion requerida / Actividades
     });
 
     const [selectedJob, setSelectedJob] = useState('');
@@ -33,20 +41,50 @@ export default function InterventionForm({ onClose }) {
     };
 
     const handleAddJob = () => {
-        if (!selectedJob || !suggestedTool) return;
+        if (!selectedJob) return;
 
         const job = JOBS.find(j => j.id === parseInt(selectedJob));
 
-        // Add the tool to itemsUsed (Borrowing logic)
+        // 1. Add to Activities List
+        const newActivities = [...formData.activities, job.name];
+
+        // 2. Add Tool/Item logic
+        let newItemsUsed = [...formData.itemsUsed];
+
+        if (suggestedTool) {
+            const existingItemIndex = newItemsUsed.findIndex(i => i.itemId === suggestedTool.id);
+
+            if (existingItemIndex >= 0) {
+                // Item exists
+                if (suggestedTool.isConsumable) {
+                    // Sum quantity for consumables
+                    newItemsUsed[existingItemIndex] = {
+                        ...newItemsUsed[existingItemIndex],
+                        quantity: newItemsUsed[existingItemIndex].quantity + 1
+                    };
+                } else {
+                    // Do NOT sum for tools (keep unique instance logic, or just ensure it's there)
+                    // "Las herramientas iguales... no se suman". We leave it as is (quantity 1).
+                }
+            } else {
+                // New item
+                newItemsUsed.push({
+                    itemId: suggestedTool.id,
+                    quantity: 1,
+                    name: suggestedTool.name,
+                    isTool: !suggestedTool.isConsumable
+                });
+            }
+        }
+
         setFormData(prev => ({
             ...prev,
+            activities: newActivities,
+            // Keep description in sync or independent? User asked to "save jobs". 
+            // We'll append to description for now to maintain compatibility with view, 
+            // but we have the structured 'activities' array too.
             description: prev.description ? `${prev.description}\n- ${job.name}` : `- ${job.name}`,
-            itemsUsed: [...prev.itemsUsed, {
-                itemId: suggestedTool.id,
-                quantity: 1,
-                name: suggestedTool.name,
-                isTool: true
-            }]
+            itemsUsed: newItemsUsed
         }));
 
         setSelectedJob('');
@@ -65,10 +103,9 @@ export default function InterventionForm({ onClose }) {
         if (!formData.unitId || !formData.operatorId || !formData.description) return;
 
         addIntervention({
+            ...formData, // Spread all new fields
             unitId: parseInt(formData.unitId),
-            operatorId: parseInt(formData.operatorId),
-            description: formData.description,
-            itemsUsed: formData.itemsUsed
+            operatorId: parseInt(formData.operatorId)
         });
 
         onClose();
@@ -84,10 +121,45 @@ export default function InterventionForm({ onClose }) {
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 1. Tipo de Orden */}
                         <div>
-                            <label className="block text-sm text-[var(--text-muted)] mb-1">Unidad (Equipo)</label>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Tipo de Orden</label>
                             <select
                                 required
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                value={formData.orderType}
+                                onChange={e => setFormData({ ...formData, orderType: e.target.value })}
+                            >
+                                <option value="CORRECTIVE">CORRECTIVE</option>
+                                <option value="PREVENTIVE">PREVENTIVE</option>
+                                <option value="IMPROVEMENT">IMPROVEMENT</option>
+                            </select>
+                        </div>
+
+                        {/* 2. Area */}
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Área</label>
+                            <select
+                                required
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                value={formData.area}
+                                onChange={e => setFormData({ ...formData, area: e.target.value })}
+                            >
+                                <option value="">Seleccione Área...</option>
+                                <option value="PRINTING">PRINTING</option>
+                                <option value="DIE CUT">DIE CUT</option>
+                                <option value="BUILDING">BUILDING</option>
+                                <option value="LAMINATION">LAMINATION</option>
+                                <option value="WAREHOUSE">WAREHOUSE</option>
+                            </select>
+                        </div>
+
+                        {/* 3. Maquina (Unit) */}
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Máquina</label>
+                            <select
+                                required
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
                                 value={formData.unitId}
                                 onChange={e => setFormData({ ...formData, unitId: e.target.value })}
                             >
@@ -95,28 +167,73 @@ export default function InterventionForm({ onClose }) {
                                 {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.model})</option>)}
                             </select>
                         </div>
+
+                        {/* 4. Tipo de Actividad */}
                         <div>
-                            <label className="block text-sm text-[var(--text-muted)] mb-1">Operador</label>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Tipo de Actividad</label>
                             <select
                                 required
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                value={formData.activityType}
+                                onChange={e => setFormData({ ...formData, activityType: e.target.value })}
+                            >
+                                <option value="MECHANIC">MECHANIC</option>
+                                <option value="ELECTRIC">ELECTRIC</option>
+                                <option value="HYDRAULIC">HYDRAULIC</option>
+                                <option value="OTHER">OTHER</option>
+                            </select>
+                        </div>
+
+                        {/* 5. Descripcion (Full Width) */}
+                        <div className="md:col-span-2">
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Descripción</label>
+                            <textarea
+                                required
+                                rows="3"
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                placeholder="Detalle el trabajo realizado..."
+                                value={formData.description}
+                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                            ></textarea>
+                        </div>
+
+                        {/* 6. Empleado (Reporting User) */}
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Empleado (Solicitante)</label>
+                            <select
+                                required
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
                                 value={formData.operatorId}
                                 onChange={e => setFormData({ ...formData, operatorId: e.target.value })}
                             >
-                                <option value="">Seleccione Operador...</option>
+                                <option value="">Seleccione Empleado...</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                             </select>
                         </div>
-                    </div>
 
-                    <div>
-                        <label className="block text-sm text-[var(--text-muted)] mb-1">Descripción del Trabajo</label>
-                        <textarea
-                            required
-                            rows="3"
-                            placeholder="Detalle el trabajo realizado..."
-                            value={formData.description}
-                            onChange={e => setFormData({ ...formData, description: e.target.value })}
-                        ></textarea>
+                        {/* 7. Atendida por (Technician) */}
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Atendida por</label>
+                            <select
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                value={formData.technicianId}
+                                onChange={e => setFormData({ ...formData, technicianId: e.target.value })}
+                            >
+                                <option value="">Seleccione Técnico...</option>
+                                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                        </div>
+
+                        {/* 8. Close Target */}
+                        <div>
+                            <label className="block text-sm text-[var(--text-muted)] mb-1">Fecha Compromiso (Close Target)</label>
+                            <input
+                                type="date"
+                                className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded p-2 text-sm"
+                                value={formData.targetDate}
+                                onChange={e => setFormData({ ...formData, targetDate: e.target.value })}
+                            />
+                        </div>
                     </div>
 
                     <div className="glass-panel p-4 bg-[var(--bg-app)]">
@@ -151,12 +268,25 @@ export default function InterventionForm({ onClose }) {
                             )}
                         </div>
 
+                        {/* List of Activities */}
+                        {formData.activities.length > 0 && (
+                            <div className="mb-4 space-y-2">
+                                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase">Actividades Agregadas</h4>
+                                {formData.activities.map((act, idx) => (
+                                    <div key={idx} className="bg-[var(--bg-panel)] p-2 rounded border border-[var(--border-glass)] text-sm">
+                                        {act}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {/* List of added items/tools */}
                         {formData.itemsUsed.length > 0 && (
                             <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase">Recursos / Herramientas</h4>
                                 {formData.itemsUsed.map((item, idx) => (
                                     <div key={idx} className="flex justify-between items-center bg-[var(--bg-panel)] p-2 rounded border border-[var(--border-glass)]">
-                                        <span className="text-sm">{item.name} <span className="text-xs text-[var(--text-muted)]">(Herramienta)</span></span>
+                                        <span className="text-sm">{item.name} <span className="text-xs text-[var(--text-muted)]">({item.isTool ? 'Herramienta' : 'Consumible'})</span></span>
                                         <div className="flex items-center gap-3">
                                             <span className="font-bold text-[var(--text-accent)]">x{item.quantity}</span>
                                             <button type="button" onClick={() => handleRemoveItem(idx)} className="text-[var(--danger)] hover:bg-white/10 p-1 rounded">

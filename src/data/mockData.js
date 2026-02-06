@@ -25,25 +25,29 @@ export const INITIAL_INTERVENTIONS = [
         id: 5001,
         unitId: 101,
         operatorId: 2,
-        date: '2023-10-25T08:30:00',
+        technicianId: 1, // Asignado a Admin (ID 1) u otro
+        date: '2026-02-05T08:30:00',
         status: 'COMPLETED',
         description: 'Cambio de aceite y filtros preventivo',
+        activities: ['Drenado de aceite usado', 'Cambio de filtro de aire', 'Relleno de aceite nuevo'],
         itemsUsed: [
-            { itemId: 1, quantity: 20, name: 'Aceite Motor 15W40' },
-            { itemId: 2, quantity: 1, name: 'Filtro de Aire CAT' },
-            { itemId: 99, quantity: 1, name: 'Llave de Filtro (Herramienta)' }
+            { itemId: 1, quantity: 20, name: 'Aceite Motor 15W40', isTool: false },
+            { itemId: 2, quantity: 1, name: 'Filtro de Aire CAT', isTool: false },
+            { itemId: 99, quantity: 1, name: 'Llave de Filtro', isTool: true }
         ]
     },
     {
         id: 5002,
         unitId: 102,
         operatorId: 3,
-        date: '2023-10-26T14:15:00',
+        technicianId: 2, // Asignado a Operador Juan (ID 2)
+        date: '2026-02-06T14:15:00',
         status: 'IN_PROGRESS',
-        description: 'Revisión sistema eléctrico',
+        description: 'Revisión sistema eléctrico por fallo en panel',
+        activities: ['Diagnóstico de falla a tierra', 'Reemplazo de fusible principal'],
         itemsUsed: [
-            { itemId: 6, quantity: 1, name: 'Multímetro Fluke' },
-            { itemId: 98, quantity: 1, name: 'Destornillador Aislado (Herramienta)' }
+            { itemId: 6, quantity: 1, name: 'Multímetro Fluke', isTool: true },
+            { itemId: 98, quantity: 1, name: 'Fusible 10A (Consumible)', isTool: false }
         ]
     }
 ];
