@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../hooks/useStore';
 import InterventionForm from '../components/InterventionForm';
-import { Plus, Calendar, User, Truck, List, LayoutGrid, Wrench, Filter, Search } from 'lucide-react';
+import { Plus, Calendar, User, Truck, List, LayoutGrid, Wrench, Filter, Search, BarChart2 } from 'lucide-react';
 
 export default function Interventions() {
     const { interventions, users, units, role, currentUserId, updateInterventionStatus } = useStore();
@@ -14,12 +14,23 @@ export default function Interventions() {
     const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'PENDING', 'IN_PROGRESS', 'COMPLETED'
     const [techFilter, setTechFilter] = useState('all'); // 'all' or userId
 
+    const getOrderTypeStyle = (type) => {
+        switch (type) {
+            case 'PREVENTIVE': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+            case 'CORRECTIVE': return 'bg-red-500/20 text-red-400 border-red-500/30';
+            case 'IMPROVEMENT': return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
+            default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+        }
+    };
+
     // Filter interventions based on Role AND Date AND Unit AND Status AND Tech AND Search
     const filteredInterventions = interventions.filter(i => {
         // 1. Role Filter
         if (role === 'OPERATOR') {
             if (i.technicianId !== currentUserId && i.operatorId !== currentUserId) return false;
         }
+
+
 
         // 2. Unit Filter
         if (selectedUnit !== 'all') {
@@ -98,6 +109,12 @@ export default function Interventions() {
                             className={`p-2 rounded ${viewMode === 'kanban' ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-muted)] hover:text-white'}`}
                         >
                             <LayoutGrid size={20} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('chart')}
+                            className={`p-2 rounded ${viewMode === 'chart' ? 'bg-[var(--primary)] text-white' : 'text-[var(--text-muted)] hover:text-white'}`}
+                        >
+                            <BarChart2 size={20} />
                         </button>
                     </div>
                 </div>
@@ -232,6 +249,14 @@ export default function Interventions() {
                                                 {inter.status === 'COMPLETED' ? 'TERMINADO' :
                                                     inter.status === 'IN_PROGRESS' ? 'EN PROGRESO' : 'PENDIENTE'}
                                             </span>
+
+                                            {/* Order Type Badge (Now between Status and Date) */}
+                                            {inter.orderType && (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getOrderTypeStyle(inter.orderType)}`}>
+                                                    {inter.orderType}
+                                                </span>
+                                            )}
+
                                             <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
                                                 <Calendar size={12} /> {new Date(inter.date).toLocaleString()}
                                             </span>
@@ -291,6 +316,79 @@ export default function Interventions() {
                         ))
                     )}
                 </div>
+            ) : viewMode === 'chart' ? (
+                /* Preventive Chart View */
+                <div className="glass-panel overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-white/5 text-[var(--text-muted)] text-xs uppercase border-b border-[var(--border-glass)]">
+                                    <th className="p-3 w-48 font-semibold sticky left-0 bg-[var(--bg-panel)] z-10 border-r border-[var(--border-glass)]">
+                                        Unidad / Equipo
+                                    </th>
+                                    <th className="p-3 w-64 font-semibold border-r border-[var(--border-glass)]">
+                                        Descripción Actividad
+                                    </th>
+                                    {/* Monthly Headers (Feb-Apr 2026 for demo) */}
+                                    <th colSpan="4" className="p-2 text-center border-r border-[var(--border-glass)] bg-blue-500/10 text-blue-300">FEBRERO</th>
+                                    <th colSpan="4" className="p-2 text-center border-r border-[var(--border-glass)] bg-purple-500/10 text-purple-300">MARZO</th>
+                                    <th colSpan="4" className="p-2 text-center bg-pink-500/10 text-pink-300">ABRIL</th>
+                                </tr>
+                                <tr className="bg-white/5 text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-glass)]">
+                                    <th className="p-2 sticky left-0 bg-[var(--bg-panel)] z-10 border-r border-[var(--border-glass)]"></th>
+                                    <th className="p-2 border-r border-[var(--border-glass)]"></th>
+                                    {/* Weeks S1-S4 for each month */}
+                                    {[...Array(12)].map((_, i) => (
+                                        <th key={i} className="p-2 text-center w-12 border-r border-[var(--border-glass)]">S{(i % 4) + 1}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[var(--border-glass)]">
+                                {filteredInterventions
+                                    .filter(i => i.orderType === 'PREVENTIVE')
+                                    .map((inter) => {
+                                        const date = new Date(inter.date);
+                                        const month = date.getMonth(); // 1 = Feb, 2 = Mar...
+                                        // Simple week calculation for demo: (Day / 7)
+                                        const week = Math.floor((date.getDate() - 1) / 7);
+                                        // Map to grid column index (0-11): (Month - 1) * 4 + Week
+                                        // Assuming start Month is Feb (Index 1).
+                                        let colIndex = -1;
+                                        if (month >= 1 && month <= 3) {
+                                            colIndex = (month - 1) * 4 + week;
+                                        }
+
+                                        return (
+                                            <tr key={inter.id} className="hover:bg-white/5 transition-colors text-sm">
+                                                <td className="p-3 font-medium text-[var(--text-main)] sticky left-0 bg-[var(--bg-panel)] z-10 border-r border-[var(--border-glass)] truncate max-w-[12rem]">
+                                                    {getUnitName(inter.unitId)}
+                                                </td>
+                                                <td className="p-3 text-[var(--text-muted)] border-r border-[var(--border-glass)] truncate max-w-[16rem]" title={inter.description}>
+                                                    {inter.description}
+                                                    <div className="text-[10px] text-[var(--primary)] mt-0.5 font-mono">#{inter.id}</div>
+                                                </td>
+                                                {[...Array(12)].map((_, i) => (
+                                                    <td key={i} className="p-1 border-r border-[var(--border-glass)] relative">
+                                                        {i === colIndex && (
+                                                            <div
+                                                                className="w-full h-6 rounded bg-green-500/80 shadow-lg shadow-green-500/20 mx-auto cursor-pointer hover:bg-green-400 transition-colors"
+                                                                title={`Programado: ${date.toLocaleDateString()}`}
+                                                            ></div>
+                                                        )}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        );
+                                    })}
+                            </tbody>
+                        </table>
+                        {filteredInterventions.filter(i => i.orderType === 'PREVENTIVE').length === 0 && (
+                            <div className="p-8 text-center text-[var(--text-muted)]">
+                                No hay órdenes preventivas para mostrar en el gráfico.
+                            </div>
+                        )}
+                    </div>
+                </div>
             ) : (
                 /* Kanban Board View */
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
@@ -337,6 +435,14 @@ export default function Interventions() {
                                             <User size={12} className="text-[var(--text-muted)]" />
                                         </div>
                                         <p className="font-medium text-sm text-[var(--text-main)] mb-3 line-clamp-3">{inter.description}</p>
+
+                                        {inter.orderType && (
+                                            <div className="mb-2">
+                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${getOrderTypeStyle(inter.orderType)}`}>
+                                                    {inter.orderType}
+                                                </span>
+                                            </div>
+                                        )}
 
                                         <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-auto pt-2 border-t border-[var(--border-glass)]">
                                             <Truck size={12} />

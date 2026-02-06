@@ -59,7 +59,7 @@ export default function Jobs() {
                         <tr className="border-b border-[var(--border-glass)] bg-white/5 text-[var(--text-muted)] text-sm uppercase">
                             <th className="p-4 font-semibold">Tarea / Trabajo</th>
                             <th className="p-4 font-semibold">Tipo</th>
-                            <th className="p-4 font-semibold text-center">Horas Est.</th>
+                            <th className="p-4 font-semibold text-center">Tiempo</th>
                             <th className="p-4 font-semibold text-right">Costo Base</th>
                         </tr>
                     </thead>
@@ -74,7 +74,7 @@ export default function Jobs() {
                                 </td>
                                 <td className="p-4 text-[var(--text-muted)]">{item.type}</td>
                                 <td className="p-4 text-center flex items-center justify-center gap-2 text-[var(--text-muted)]">
-                                    <Clock size={14} /> {item.estimartedHours}h
+                                    <Clock size={14} /> {item.time}h
                                 </td>
                                 <td className="p-4 text-right text-[var(--text-muted)]">
                                     {item.cost > 0 ? `$${item.cost}` : '-'}

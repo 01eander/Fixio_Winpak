@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Truck, Warehouse, ClipboardList } from 'lucide-react';
+import { Users, Truck, Warehouse, ClipboardList, Factory } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 export default function Catalogs() {
@@ -37,6 +37,14 @@ export default function Catalogs() {
             color: 'bg-purple-500',
             desc: 'Catálogo de tipos de mantenimiento y tareas.',
             count: '5 Tipos'
+        },
+        {
+            id: 'areas',
+            label: 'Áreas',
+            icon: Factory,
+            color: 'bg-indigo-500',
+            desc: 'Zonas de planta y centros de costo.',
+            count: '8 Áreas'
         },
         {
             id: 'inventory',

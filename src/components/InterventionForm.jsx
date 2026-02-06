@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../hooks/useStore';
-import { Plus, X, Save } from 'lucide-react';
-import { JOBS } from '../data/mockData';
+import { Plus, X, Save, CheckSquare, Square, ChevronRight, ChevronDown } from 'lucide-react';
+import { JOBS, COMPONENTS, AREAS } from '../data/mockData';
 
 export default function InterventionForm({ onClose }) {
     const { users, units, inventory, addIntervention } = useStore();
@@ -10,6 +10,7 @@ export default function InterventionForm({ onClose }) {
         // Excel Columns Mapping:
         // Folio (Auto), Fecha (Auto)
         orderType: 'CORRECTIVE', // Tipo de Orden
+        frequency: '',           // Periodicidad (solo para Preventivos)
         area: '',                // Area
         unitId: '',             // Maquina
         activityType: 'MECHANIC',// Tipo de Actividad
@@ -18,14 +19,33 @@ export default function InterventionForm({ onClose }) {
         technicianId: '',       // Atendida por
         targetDate: '',         // CLOSE TARGET
         activities: [],          // List of job names added
-        itemsUsed: []           // Refaccion requerida / Actividades
+        itemsUsed: [],          // Refaccion requerida / Actividades
+        selectedComponentIds: [] // IDs of components selected for this work
     });
 
     const [selectedJob, setSelectedJob] = useState('');
     const [suggestedTool, setSuggestedTool] = useState(null);
+    const [availableComponents, setAvailableComponents] = useState([]);
 
     // Filter tools from inventory for suggestions
     const tools = inventory.filter(i => !i.isConsumable);
+
+    // Effect to update available components when unit changes
+    useEffect(() => {
+        if (formData.unitId) {
+            const unitIdNum = parseInt(formData.unitId);
+            const comps = COMPONENTS.filter(c => c.equipoId === unitIdNum);
+            setAvailableComponents(comps);
+            // Default select all
+            setFormData(prev => ({
+                ...prev,
+                selectedComponentIds: comps.map(c => c.id)
+            }));
+        } else {
+            setAvailableComponents([]);
+            setFormData(prev => ({ ...prev, selectedComponentIds: [] }));
+        }
+    }, [formData.unitId]);
 
     const handleJobChange = (e) => {
         const jobId = e.target.value;
@@ -98,6 +118,46 @@ export default function InterventionForm({ onClose }) {
         }));
     };
 
+    // Helper to get all descendant IDs
+    const getDescendantIds = (rootId, allComponents) => {
+        let descendants = [];
+        const children = allComponents.filter(c => c.parentId === rootId);
+
+        children.forEach(child => {
+            descendants.push(child.id);
+            descendants = [...descendants, ...getDescendantIds(child.id, allComponents)];
+        });
+
+        return descendants;
+    };
+
+    const toggleComponent = (compId) => {
+        setFormData(prev => {
+            const currentIds = prev.selectedComponentIds;
+            const isCurrentlySelected = currentIds.includes(compId);
+
+            // Get all descendants to toggle them as well
+            const descendants = getDescendantIds(compId, availableComponents);
+            const idsatRisk = [compId, ...descendants];
+
+            if (isCurrentlySelected) {
+                // Deselect parent and all descendants
+                return {
+                    ...prev,
+                    selectedComponentIds: currentIds.filter(id => !idsatRisk.includes(id))
+                };
+            } else {
+                // Select parent and all descendants
+                // Filter out any that are already selected to avoid duplicates
+                const newIdsToAdd = idsatRisk.filter(id => !currentIds.includes(id));
+                return {
+                    ...prev,
+                    selectedComponentIds: [...currentIds, ...newIdsToAdd]
+                };
+            }
+        });
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.unitId || !formData.operatorId || !formData.description) return;
@@ -109,6 +169,43 @@ export default function InterventionForm({ onClose }) {
         });
 
         onClose();
+    };
+
+    // Recursive helper to render component tree
+    const renderComponentTree = (parentId = null, level = 0) => {
+        const nodes = availableComponents.filter(c => c.parentId === parentId);
+
+        if (nodes.length === 0) return null;
+
+        return (
+            <div className={`flex flex-col ${level > 0 ? 'ml-6 relative border-l border-[var(--border-glass)]' : ''}`}>
+                {nodes.map(node => (
+                    <div key={node.id} className="relative">
+                        {/* Connecting line for children */}
+                        {level > 0 && (
+                            <div className="absolute -left-[1px] top-4 w-4 h-px bg-[var(--border-glass)]"></div>
+                        )}
+
+                        <div
+                            className={`flex items-center gap-2 p-2 my-1 rounded cursor-pointer transition-colors ${formData.selectedComponentIds.includes(node.id) ? 'bg-blue-500/10 border border-blue-500/30' : 'hover:bg-white/5 border border-transparent'}`}
+                            onClick={() => toggleComponent(node.id)}
+                        >
+                            <div className="flex-shrink-0">
+                                {formData.selectedComponentIds.includes(node.id)
+                                    ? <CheckSquare size={16} className="text-[var(--primary)]" />
+                                    : <Square size={16} className="text-[var(--text-muted)]" />
+                                }
+                            </div>
+                            <span className={`text-sm ${formData.selectedComponentIds.includes(node.id) ? 'text-white' : 'text-[var(--text-muted)]'}`}>
+                                {node.name}
+                            </span>
+                        </div>
+                        {/* Recursive children */}
+                        {renderComponentTree(node.id, level + 1)}
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -136,6 +233,28 @@ export default function InterventionForm({ onClose }) {
                             </select>
                         </div>
 
+                        {/* 1.1 Periodicidad (Condicional) */}
+                        {formData.orderType === 'PREVENTIVE' && (
+                            <div className="col-span-1 md:col-span-2 bg-[var(--bg-panel)] p-3 rounded border border-[var(--border-glass)] animate-in fade-in slide-in-from-top-2">
+                                <label className="block text-sm font-semibold text-[var(--text-main)] mb-2">¿Cuándo desea que se inicie la tarea?</label>
+                                <div className="flex flex-wrap gap-4">
+                                    {['Diariamente', 'Semanalmente', 'Mensualmente', 'Una vez'].map((freq) => (
+                                        <label key={freq} className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="radio"
+                                                name="frequency"
+                                                value={freq}
+                                                checked={formData.frequency === freq}
+                                                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                                                className="form-radio text-[var(--primary)] bg-transparent border-[var(--border-glass)] focus:ring-[var(--primary)]"
+                                            />
+                                            <span className="text-sm text-[var(--text-muted)] group-hover:text-white transition-colors">{freq}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 2. Area */}
                         <div>
                             <label className="block text-sm text-[var(--text-muted)] mb-1">Área</label>
@@ -146,11 +265,9 @@ export default function InterventionForm({ onClose }) {
                                 onChange={e => setFormData({ ...formData, area: e.target.value })}
                             >
                                 <option value="">Seleccione Área...</option>
-                                <option value="PRINTING">PRINTING</option>
-                                <option value="DIE CUT">DIE CUT</option>
-                                <option value="BUILDING">BUILDING</option>
-                                <option value="LAMINATION">LAMINATION</option>
-                                <option value="WAREHOUSE">WAREHOUSE</option>
+                                {AREAS.map(area => (
+                                    <option key={area.id} value={area.name}>{area.name}</option>
+                                ))}
                             </select>
                         </div>
 
@@ -167,6 +284,18 @@ export default function InterventionForm({ onClose }) {
                                 {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.model})</option>)}
                             </select>
                         </div>
+
+                        {/* Component Selection Checkboxes (Hierarchical) */}
+                        {availableComponents.length > 0 && (
+                            <div className="col-span-1 md:col-span-2 bg-[var(--bg-panel)] p-3 rounded border border-[var(--border-glass)]">
+                                <label className="block text-xs font-bold text-[var(--text-muted)] uppercase mb-2">Componentes Afectados</label>
+                                <div className="max-h-60 overflow-y-auto pr-2">
+                                    {/* Start recursion with null parentId (root items) */}
+                                    {renderComponentTree(null)}
+                                </div>
+                            </div>
+                        )}
+
 
                         {/* 4. Tipo de Actividad */}
                         <div>
@@ -310,3 +439,4 @@ export default function InterventionForm({ onClose }) {
         </div>
     );
 }
+
