@@ -136,7 +136,7 @@ export default function Dashboard() {
                         <Wrench size={18} className="text-[var(--success)]" />
                         Herramientas Más Usadas
                     </h3>
-                    <div className="h-64 w-full" style={{ minHeight: '250px' }}>
+                    <div className="h-64 w-full min-w-0" style={{ minHeight: '250px' }}>
                         {toolsData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -174,7 +174,7 @@ export default function Dashboard() {
                         <Activity size={18} className="text-[var(--primary)]" />
                         Trabajos Recuentes
                     </h3>
-                    <div className="h-64 w-full" style={{ minHeight: '250px' }}>
+                    <div className="h-64 w-full min-w-0" style={{ minHeight: '250px' }}>
                         {jobsData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
