@@ -1,11 +1,11 @@
 import React from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { LayoutDashboard, Wrench, FileText, Settings, Menu, Bell, User, FolderOpen, Shield, Users } from 'lucide-react';
 import logo from '../img/fixio.png';
 import { useStore } from '../hooks/useStore';
 
 export default function Layout({ children }) {
-    const [location, setLocation] = useLocation();
+    const [location] = useLocation();
     const { role, setRole } = useStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -85,23 +85,19 @@ export default function Layout({ children }) {
                         const Icon = item.icon;
                         const isActive = location === item.path;
                         return (
-                            <div
-                                key={item.path}
-                                role="link"
-                                tabIndex={0}
-                                onClick={() => {
-                                    setIsMobileMenuOpen(false);
-                                    setLocation(item.path);
-                                }}
-                                className={`group flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 w-full mb-2 cursor-pointer ${isActive
-                                    ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-lg shadow-blue-500/20 translate-x-1'
-                                    : 'bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] hover:text-white hover:translate-x-1 border border-transparent hover:border-[var(--border-glass)]'
-                                    }`}>
-                                <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : 'bg-black/20 group-hover:bg-black/40'}`}>
-                                    <Icon size={22} className={isActive ? 'text-white' : ''} />
+                            <Link key={item.path} href={item.path}>
+                                <div
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`group flex items-center gap-4 px-6 py-4 rounded-xl transition-all duration-300 w-full mb-2 cursor-pointer ${isActive
+                                        ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-lg shadow-blue-500/20 translate-x-1'
+                                        : 'bg-[var(--bg-panel)] text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] hover:text-white hover:translate-x-1 border border-transparent hover:border-[var(--border-glass)]'
+                                        }`}>
+                                    <div className={`p-2 rounded-lg ${isActive ? 'bg-white/20' : 'bg-black/20 group-hover:bg-black/40'}`}>
+                                        <Icon size={22} className={isActive ? 'text-white' : ''} />
+                                    </div>
+                                    <span className="font-bold text-lg tracking-wide">{item.label}</span>
                                 </div>
-                                <span className="font-bold text-lg tracking-wide">{item.label}</span>
-                            </div>
+                            </Link>
                         );
                     })}
                 </nav>

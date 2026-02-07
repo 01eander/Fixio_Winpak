@@ -19,8 +19,8 @@ import InventoryAudit from './pages/InventoryAudit';
 function App() {
   return (
     <StoreProvider>
-      <Layout>
-        <Router hook={useHashLocation}>
+      <Router hook={useHashLocation}>
+        <Layout>
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/bitacoras" component={Bitacoras} />
@@ -45,9 +45,9 @@ function App() {
               </div>
             </Route>
           </Switch>
-        </Router>
-      </Layout>
-    </StoreProvider>
+        </Layout>
+      </Router>
+    </StoreProvider >
   );
 }
 
