@@ -1,5 +1,5 @@
-import React from 'react';
 import { Route, Switch, Router } from 'wouter';
+import { useHashLocation } from './hooks/useHashLocation';
 import { StoreProvider } from './hooks/useStore';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -20,7 +20,7 @@ function App() {
   return (
     <StoreProvider>
       <Layout>
-        <Router base={import.meta.env.BASE_URL}>
+        <Router hook={useHashLocation}>
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/bitacoras" component={Bitacoras} />
