@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../hooks/useStore';
+import { WAREHOUSES } from '../data/mockData';
 import { Link } from 'wouter';
 import {
     ArrowLeft, Search, Plus, CheckCircle, AlertTriangle,
@@ -19,7 +20,8 @@ export default function InventoryAudit() {
     const [isCreationModalOpen, setIsCreationModalOpen] = useState(false);
 
     // Audit Creation State
-    const [auditScope, setAuditScope] = useState('RANDOM'); // RANDOM, CONSUMABLES, TOOLS, ALL
+    const [auditScope, setAuditScope] = useState('RANDOM'); // RANDOM, CONSUMABLES, TOOLS, ALL, WAREHOUSE
+    const [selectedWarehouse, setSelectedWarehouse] = useState('');
 
     // Active Audit State
     const [auditItems, setAuditItems] = useState([]);
@@ -37,6 +39,9 @@ export default function InventoryAudit() {
                 break;
             case 'ALL':
                 itemsToAudit = [...inventory];
+                break;
+            case 'WAREHOUSE':
+                itemsToAudit = inventory.filter(i => i.warehouseId === parseInt(selectedWarehouse));
                 break;
             case 'RANDOM':
             default:
@@ -64,6 +69,7 @@ export default function InventoryAudit() {
         setActiveAudit(newAudit);
         setAuditItems(newAuditItems);
         setIsCreationModalOpen(false);
+        setSelectedWarehouse(''); // Reset warehouse selection
     };
 
     const handleResumeAudit = (audit) => {
@@ -422,11 +428,41 @@ export default function InventoryAudit() {
                                     <div className="font-bold">Solo Herramientas</div>
                                     <div className="text-xs opacity-70">Auditar llaves, taladros, equipos de medición.</div>
                                 </button>
+
+                                <button
+                                    onClick={() => setAuditScope('WAREHOUSE')}
+                                    className={`w-full p-4 rounded-lg border text-left transition-all ${auditScope === 'WAREHOUSE' ? 'bg-indigo-600/20 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'}`}
+                                >
+                                    <div className="font-bold">Por Almacén</div>
+                                    <div className="text-xs opacity-70">Auditar items de un almacén específico.</div>
+                                </button>
+
+                                {auditScope === 'WAREHOUSE' && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">Seleccione Almacén *</label>
+                                        <select
+                                            value={selectedWarehouse}
+                                            onChange={(e) => setSelectedWarehouse(e.target.value)}
+                                            className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        >
+                                            <option value="">-- Seleccione un almacén --</option>
+                                            {WAREHOUSES.map(warehouse => (
+                                                <option key={warehouse.id} value={warehouse.id}>
+                                                    {warehouse.name} ({warehouse.location})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
                             <button
                                 onClick={handleCreateAudit}
-                                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold rounded-lg shadow-lg flex justify-center items-center gap-2"
+                                disabled={auditScope === 'WAREHOUSE' && !selectedWarehouse}
+                                className={`w-full py-3 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-bold rounded-lg shadow-lg flex justify-center items-center gap-2 transition-all ${auditScope === 'WAREHOUSE' && !selectedWarehouse
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:scale-105'
+                                    }`}
                             >
                                 Generar Hoja de Conteo <CheckCircle size={18} />
                             </button>
