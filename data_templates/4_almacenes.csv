@@ -1,0 +1,5 @@
+name,area_name,is_personal
+Almacén General,Área de Almacén,FALSE
+Almacén de Refacciones,Área de Almacén,FALSE
+Almacén Personal - Juan Pérez,Área de Mantenimiento,TRUE
+Almacén Personal - María López,Área de Mantenimiento,TRUE

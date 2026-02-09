@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: fixio_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "54321:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fixio_network
+
+  # Interfaz visual para administrar la BD
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: fixio_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5052:80"
+    depends_on:
+      - db
+    networks:
+      - fixio_network
+
+volumes:
+  postgres_data:
+
+networks:
+  fixio_network:
+    driver: bridge

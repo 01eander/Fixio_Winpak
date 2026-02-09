@@ -15,6 +15,10 @@ import Bitacoras from './pages/Bitacoras';
 import BitacoraConversion from './pages/BitacoraConversion';
 import BitacoraDiecut from './pages/BitacoraDiecut';
 import InventoryAudit from './pages/InventoryAudit';
+import Departments from './pages/Departments';
+import Roles from './pages/Roles';
+import AssetCategories from './pages/AssetCategories';
+import InventoryCategories from './pages/InventoryCategories';
 
 function App() {
   return (
@@ -29,11 +33,14 @@ function App() {
             <Route path="/catalogs" component={Catalogs} />
             <Route path="/catalogs/areas" component={Areas} />
             <Route path="/catalogs/mecanicos" component={Mechanics} />
+            <Route path="/catalogs/departments" component={Departments} />
+            <Route path="/catalogs/roles" component={Roles} />
             <Route path="/catalogs/equipos" component={Equipment} />
+            <Route path="/catalogs/asset-categories" component={AssetCategories} />
             <Route path="/catalogs/almacenes" component={Warehouses} />
             <Route path="/catalogs/trabajos" component={Jobs} />
+            <Route path="/catalogs/inventory-categories" component={InventoryCategories} />
             <Route path="/inventory" component={Inventory} />
-            <Route path="/inventory/audit" component={InventoryAudit} />
             <Route path="/inventory/audit" component={InventoryAudit} />
             <Route path="/interventions" component={Interventions} />
             <Route path="/bitacoras/ordenes" component={Interventions} />

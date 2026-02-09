@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Truck, Warehouse, ClipboardList, Factory } from 'lucide-react';
+import { Users, Truck, Warehouse, ClipboardList, Factory, Building2, Shield, Tag, Tags } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 export default function Catalogs() {
@@ -8,11 +8,27 @@ export default function Catalogs() {
     const catalogs = [
         {
             id: 'mecanicos',
-            label: 'Mecánicos',
+            label: 'Usuarios',
             icon: Users,
             color: 'bg-blue-500',
             desc: 'Gestión de personal técnico y operadores.',
-            count: '3 Activos' // Mock data
+            count: 'Gestionar'
+        },
+        {
+            id: 'departments',
+            label: 'Departamentos',
+            icon: Building2,
+            color: 'bg-blue-600',
+            desc: 'Departamentos y áreas funcionales.',
+            count: 'Gestionar'
+        },
+        {
+            id: 'roles',
+            label: 'Roles Usuario',
+            icon: Shield,
+            color: 'bg-indigo-600',
+            desc: 'Roles y permisos de usuarios.',
+            count: 'Gestionar'
         },
         {
             id: 'equipos',
@@ -20,7 +36,15 @@ export default function Catalogs() {
             icon: Truck,
             color: 'bg-orange-500',
             desc: 'Maquinaria pesada, vehículos y herramientas.',
-            count: '12 Unidades'
+            count: 'Gestionar'
+        },
+        {
+            id: 'asset-categories',
+            label: 'Cat. Equipos',
+            icon: Tag,
+            color: 'bg-orange-600',
+            desc: 'Categorías para activos y equipos.',
+            count: 'Gestionar'
         },
         {
             id: 'almacenes',
@@ -28,15 +52,7 @@ export default function Catalogs() {
             icon: Warehouse,
             color: 'bg-emerald-500',
             desc: 'Ubicaciones de inventario y repuestos.',
-            count: '1 Central'
-        },
-        {
-            id: 'trabajos',
-            label: 'Trabajos',
-            icon: ClipboardList,
-            color: 'bg-purple-500',
-            desc: 'Catálogo de tipos de mantenimiento y tareas.',
-            count: '5 Tipos'
+            count: 'Gestionar'
         },
         {
             id: 'areas',
@@ -44,7 +60,7 @@ export default function Catalogs() {
             icon: Factory,
             color: 'bg-indigo-500',
             desc: 'Zonas de planta y centros de costo.',
-            count: '8 Áreas'
+            count: 'Gestionar'
         },
         {
             id: 'inventory',
@@ -52,7 +68,23 @@ export default function Catalogs() {
             icon: Warehouse,
             color: 'bg-emerald-600',
             desc: 'Gestión de items, herramientas y consumibles.',
-            count: 'Ver lista'
+            count: 'Gestionar'
+        },
+        {
+            id: 'inventory-categories',
+            label: 'Cat. Items',
+            icon: Tags,
+            color: 'bg-emerald-700',
+            desc: 'Clasificación de materiales e insumos.',
+            count: 'Gestionar'
+        },
+        {
+            id: 'trabajos',
+            label: 'Trabajos',
+            icon: ClipboardList,
+            color: 'bg-purple-500',
+            desc: 'Catálogo de tipos de mantenimiento y tareas.',
+            count: 'Gestionar'
         }
     ];
 

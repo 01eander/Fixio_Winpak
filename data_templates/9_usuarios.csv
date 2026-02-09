@@ -1,0 +1,6 @@
+full_name,email,role_name,department_name,default_warehouse_name,password
+Juan Pérez Martínez,juan.perez@empresa.com,Técnico de Mantenimiento,Mantenimiento,Almacén Personal - Juan Pérez,temporal123
+María López García,maria.lopez@empresa.com,Técnico de Mantenimiento,Mantenimiento,Almacén Personal - María López,temporal123
+Carlos Ramírez,carlos.ramirez@empresa.com,Operador de Producción,Producción,,temporal123
+Ana Sánchez,ana.sanchez@empresa.com,Almacenista,Logística,,temporal123
+Roberto González,roberto.gonzalez@empresa.com,Administrador,Mantenimiento,,admin123

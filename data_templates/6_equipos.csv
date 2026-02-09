@@ -1,0 +1,5 @@
+name,model,serial_number,category_name,area_name,status,acquisition_date
+Torno CNC Haas,ST-20,SN12345,Maquinaria,Área de Producción,OPERATIVO,2023-01-15
+Montacargas Toyota,8FG25,MK98765,Vehículo,Área de Almacén,OPERATIVO,2022-06-10
+Taladro DeWalt,DCD771C2,TD55443,Herramienta,Área de Mantenimiento,OPERATIVO,2023-03-20
+Fresadora Vertical,VM-3000,FV78901,Maquinaria,Área de Producción,MANTENIMIENTO,2021-11-05
