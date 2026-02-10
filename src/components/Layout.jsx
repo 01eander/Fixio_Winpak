@@ -6,8 +6,15 @@ import { useStore } from '../hooks/useStore';
 
 export default function Layout({ children }) {
     const [location] = useLocation();
-    const { role, setRole } = useStore();
+    const { role, setRole, currentUser } = useStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+    const getPhotoUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        return `http://localhost:3000/api${url}`;
+    };
+    const photoUrl = currentUser ? getPhotoUrl(currentUser.photo_url) : null;
 
     const navItems = [
         { label: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -103,10 +110,12 @@ export default function Layout({ children }) {
                 </nav>
 
                 <div className="p-4 border-t border-[var(--border-glass)]">
-                    <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] text-sm">
-                        <Settings size={18} />
-                        <span>Configuración</span>
-                    </button>
+                    <Link href="/settings">
+                        <div className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[var(--text-muted)] hover:bg-[rgba(255,255,255,0.05)] text-sm transition-colors cursor-pointer text-left">
+                            <Settings size={18} />
+                            <span>Configuración</span>
+                        </div>
+                    </Link>
                 </div>
             </aside>
 
@@ -159,11 +168,15 @@ export default function Layout({ children }) {
 
                         <div className="flex items-center gap-3 pl-4 border-l border-[var(--border-glass)] hidden sm:flex">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-medium">{role === 'ADMIN' ? 'Fermin Montoya' : 'Operador Demo'}</p>
-                                <p className="text-xs text-[var(--text-muted)]">{role === 'ADMIN' ? 'Supervisor' : 'Técnico Nivel 1'}</p>
+                                <p className="text-sm font-medium">{currentUser ? currentUser.full_name : (role === 'ADMIN' ? 'Administrador' : 'Operador')}</p>
+                                <p className="text-xs text-[var(--text-muted)]">{currentUser ? (currentUser.role_name || role) : role}</p>
                             </div>
                             <div className={`w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden transition-colors ${role === 'ADMIN' ? 'bg-[var(--bg-panel)] border-[var(--border-glass)]' : 'bg-blue-500/20 border-blue-500/30'}`}>
-                                <User size={20} className={role === 'OPERATOR' ? 'text-blue-400' : ''} />
+                                {photoUrl ? (
+                                    <img src={photoUrl} alt="User" className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={20} className={role === 'OPERATOR' ? 'text-blue-400' : ''} />
+                                )}
                             </div>
                         </div>
 

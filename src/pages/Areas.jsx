@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Users, Target, Factory, FileDown, Table, ArrowLeft, Plus, X, Save, Edit, Trash2 } from 'lucide-react';
+import { Search, MapPin, Users, Target, Factory, FileDown, Table, ArrowLeft, Plus, X, Save, Edit, Trash2, Upload } from 'lucide-react';
 import { Link } from 'wouter';
 
 const API_URL = 'http://localhost:3000/api';
@@ -15,13 +15,14 @@ export default function Areas() {
         description: '',
         manager: ''
     });
+    const [selectedImage, setSelectedImage] = useState(null);
     const [areaCategoryId, setAreaCategoryId] = useState(null);
 
     useEffect(() => {
-        loadData();
+        fetchAreas();
     }, []);
 
-    const loadData = async () => {
+    const fetchAreas = async () => {
         try {
             // 1. Fetch Categories to find 'Área' ID
             const catResponse = await fetch(`${API_URL}/asset-categories`);
@@ -59,9 +60,11 @@ export default function Areas() {
                 description: item.model || '',
                 manager: ''
             });
+            setSelectedImage(null);
         } else {
             setEditingItem(null);
             setFormData({ name: '', description: '', manager: '' });
+            setSelectedImage(null);
         }
         setIsModalOpen(true);
     };
@@ -97,6 +100,20 @@ export default function Areas() {
             });
 
             if (response.ok) {
+                const data = await response.json();
+
+                // Upload image if selected
+                if (selectedImage) {
+                    const assetId = editingItem ? editingItem.id : data.id;
+                    const imageFormData = new FormData();
+                    imageFormData.append('image', selectedImage);
+
+                    await fetch(`${API_URL}/assets/${assetId}/image`, {
+                        method: 'POST',
+                        body: imageFormData
+                    });
+                }
+
                 fetchAreas();
                 handleCloseModal();
             } else {
@@ -180,10 +197,17 @@ export default function Areas() {
                     filteredItems.map((area) => (
                         <div key={area.id} className="glass-panel p-0 overflow-hidden hover:scale-[1.02] transition-transform duration-300 relative group">
                             <div className="h-32 overflow-hidden relative bg-[var(--bg-panel-dark)]">
-                                {/* Placeholder image since we don't store images yet */}
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900/20 to-purple-900/20">
-                                    <Factory size={48} className="text-white/20" />
-                                </div>
+                                {area.image_url ? (
+                                    <img
+                                        src={area.image_url.startsWith('http') ? area.image_url : `${API_URL}${area.image_url}`}
+                                        alt={area.name}
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-900/20 to-purple-900/20">
+                                        <Factory size={48} className="text-white/20" />
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-panel)] to-transparent"></div>
                                 <div className="absolute bottom-3 left-4">
                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -270,6 +294,23 @@ export default function Areas() {
                                     value={formData.description}
                                     onChange={handleInputChange}
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Imagen del Área</label>
+                                <div className="border border-dashed border-[var(--border-glass)] rounded-lg p-4 text-center cursor-pointer hover:bg-white/5 transition-colors relative">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={(e) => setSelectedImage(e.target.files[0])}
+                                    />
+                                    <div className="flex flex-col items-center gap-2 pointer-events-none">
+                                        <Upload size={24} className="text-[var(--text-muted)]" />
+                                        <span className="text-sm text-[var(--text-muted)]">
+                                            {selectedImage ? selectedImage.name : 'Click para subir imagen'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-[var(--border-glass)]">
                                 <button

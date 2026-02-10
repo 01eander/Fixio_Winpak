@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Truck, Warehouse, ClipboardList, Factory, Building2, Shield, Tag, Tags } from 'lucide-react';
+import { Users, Truck, Warehouse, ClipboardList, Factory, Building2, Shield, Tag, Tags, Clock, Cog } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 export default function Catalogs() {
@@ -15,14 +15,6 @@ export default function Catalogs() {
             count: 'Gestionar'
         },
         {
-            id: 'departments',
-            label: 'Departamentos',
-            icon: Building2,
-            color: 'bg-blue-600',
-            desc: 'Departamentos y áreas funcionales.',
-            count: 'Gestionar'
-        },
-        {
             id: 'roles',
             label: 'Roles Usuario',
             icon: Shield,
@@ -33,7 +25,7 @@ export default function Catalogs() {
         {
             id: 'equipos',
             label: 'Equipos',
-            icon: Truck,
+            icon: Cog,
             color: 'bg-orange-500',
             desc: 'Maquinaria pesada, vehículos y herramientas.',
             count: 'Gestionar'
@@ -47,11 +39,11 @@ export default function Catalogs() {
             count: 'Gestionar'
         },
         {
-            id: 'almacenes',
-            label: 'Almacenes',
-            icon: Warehouse,
-            color: 'bg-emerald-500',
-            desc: 'Ubicaciones de inventario y repuestos.',
+            id: 'departments',
+            label: 'Departamentos',
+            icon: Building2,
+            color: 'bg-blue-600',
+            desc: 'Departamentos y áreas funcionales.',
             count: 'Gestionar'
         },
         {
@@ -63,19 +55,27 @@ export default function Catalogs() {
             count: 'Gestionar'
         },
         {
-            id: 'inventory',
-            label: 'Inventario',
-            icon: Warehouse,
-            color: 'bg-emerald-600',
-            desc: 'Gestión de items, herramientas y consumibles.',
+            id: 'shifts',
+            label: 'Turnos',
+            icon: Clock,
+            color: 'bg-yellow-500',
+            desc: 'Turnos y horarios de trabajo.',
             count: 'Gestionar'
         },
         {
-            id: 'inventory-categories',
-            label: 'Cat. Items',
-            icon: Tags,
-            color: 'bg-emerald-700',
-            desc: 'Clasificación de materiales e insumos.',
+            id: 'almacenes',
+            label: 'Almacenes',
+            icon: Warehouse,
+            color: 'bg-emerald-500',
+            desc: 'Ubicaciones de inventario y repuestos.',
+            count: 'Gestionar'
+        },
+        {
+            id: 'inventory',
+            label: 'Inventarios',
+            icon: Warehouse,
+            color: 'bg-emerald-600',
+            desc: 'Gestión de items, herramientas y consumibles.',
             count: 'Gestionar'
         },
         {
@@ -84,6 +84,14 @@ export default function Catalogs() {
             icon: ClipboardList,
             color: 'bg-purple-500',
             desc: 'Catálogo de tipos de mantenimiento y tareas.',
+            count: 'Gestionar'
+        },
+        {
+            id: 'inventory-categories',
+            label: 'Cat. Items',
+            icon: Tags,
+            color: 'bg-emerald-700',
+            desc: 'Clasificación de materiales e insumos.',
             count: 'Gestionar'
         }
     ];

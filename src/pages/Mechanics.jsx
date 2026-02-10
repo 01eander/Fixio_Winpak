@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, UserPlus, Shield, Briefcase, Mail, Phone, Lock, Edit, Trash2, X, Save, ArrowLeft, Warehouse } from 'lucide-react';
+import { Search, UserPlus, Shield, Briefcase, Mail, Phone, Lock, Edit, Trash2, X, Save, ArrowLeft, Warehouse, Clock } from 'lucide-react';
 import { Link } from 'wouter';
 
 const API_URL = 'http://localhost:3000/api';
@@ -9,6 +9,7 @@ export default function Mechanics() {
     const [departments, setDepartments] = useState([]);
     const [roles, setRoles] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
+    const [shifts, setShifts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +20,8 @@ export default function Mechanics() {
         role_id: '',
         department_id: '',
         password_hash: '',
-        default_warehouse_id: ''
+        default_warehouse_id: '',
+        shift_id: ''
     });
 
     useEffect(() => {
@@ -27,6 +29,7 @@ export default function Mechanics() {
         fetchDepartments();
         fetchRoles();
         fetchWarehouses();
+        fetchShifts();
     }, []);
 
     const fetchUsers = async () => {
@@ -79,6 +82,18 @@ export default function Mechanics() {
         }
     };
 
+    const fetchShifts = async () => {
+        try {
+            const response = await fetch(`${API_URL}/shifts`);
+            if (response.ok) {
+                const data = await response.json();
+                setShifts(data);
+            }
+        } catch (error) {
+            console.error('Error fetching shifts:', error);
+        }
+    };
+
     const handleOpenModal = (user = null) => {
         if (user) {
             setEditingUser(user);
@@ -88,7 +103,8 @@ export default function Mechanics() {
                 role_id: user.role_id || '',
                 department_id: user.department_id || '',
                 password_hash: '', // Don't show hash
-                default_warehouse_id: user.default_warehouse_id || ''
+                default_warehouse_id: user.default_warehouse_id || '',
+                shift_id: user.shift_id || ''
             });
         } else {
             setEditingUser(null);
@@ -98,6 +114,8 @@ export default function Mechanics() {
                 role_id: '',
                 department_id: '',
                 password_hash: '',
+                default_warehouse_id: '',
+                shift_id: '',
                 default_warehouse_id: ''
             });
         }
@@ -203,6 +221,7 @@ export default function Mechanics() {
                     <thead>
                         <tr className="border-b border-[var(--border-glass)] bg-white/5 text-[var(--text-muted)] text-sm uppercase">
                             <th className="p-4 font-semibold">Usuario</th>
+                            <th className="p-4 font-semibold">Turno</th>
                             <th className="p-4 font-semibold">Rol</th>
                             <th className="p-4 font-semibold">Departamento</th>
                             <th className="p-4 font-semibold">Almacén Default</th>
@@ -229,6 +248,12 @@ export default function Mechanics() {
                                                     <Mail size={12} /> {user.email}
                                                 </div>
                                             </div>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-[var(--text-muted)]">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={16} className="text-yellow-500" />
+                                            <span className="text-[var(--text-main)]">{user.shift_name || 'N/A'}</span>
                                         </div>
                                     </td>
                                     <td className="p-4">
@@ -341,6 +366,25 @@ export default function Mechanics() {
                                         ))}
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Shifts */}
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1 flex items-center gap-2">
+                                    <Clock size={16} /> Turno
+                                </label>
+                                <select
+                                    name="shift_id"
+                                    required
+                                    className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded-lg p-2.5 text-white outline-none focus:border-blue-500 transition-all"
+                                    value={formData.shift_id}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="">Seleccionar Turno</option>
+                                    {shifts.map(shift => (
+                                        <option key={shift.id} value={shift.id}>{shift.name} ({parseFloat(shift.daily_hours).toFixed(1)} hrs)</option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* NEW: Default Warehouse Dropdown if Maintenance Role OR Department */}

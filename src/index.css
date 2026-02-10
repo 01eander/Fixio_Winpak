@@ -30,6 +30,20 @@
   background-color: var(--bg-app);
 }
 
+:root.light-mode {
+  --bg-app: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.9);
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+
+  --border-glass: rgba(0, 0, 0, 0.1);
+  --shadow-glass: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -40,6 +54,11 @@ body {
   min-height: 100vh;
   background: radial-gradient(circle at top center, #1e293b 0%, #0f172a 100%);
   background-attachment: fixed;
+  transition: background 0.3s ease;
+}
+
+:root.light-mode body {
+  background: radial-gradient(circle at top center, #ffffff 0%, #f1f5f9 100%);
 }
 
 /* Utilities */
@@ -116,6 +135,11 @@ textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+option {
+  background-color: var(--bg-panel);
+  color: var(--text-main);
 }
 
 /* Layout Grid */

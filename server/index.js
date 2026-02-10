@@ -1,12 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { parse } = require('csv-parse/sync');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Multer Configuration
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
 
 // --- CATALOGS: DEPARTMENTS ---
 app.get('/api/departments', async (req, res) => {
@@ -177,11 +194,12 @@ app.delete('/api/inventory-categories/:id', async (req, res) => {
 app.get('/api/users', async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT u.*, d.name as department_name, r.name as role_name, w.name as default_warehouse_name
+            SELECT u.*, d.name as department_name, r.name as role_name, w.name as default_warehouse_name, s.name as shift_name
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
             LEFT JOIN user_roles r ON u.role_id = r.id
             LEFT JOIN warehouses w ON u.default_warehouse_id = w.id
+            LEFT JOIN shifts s ON u.shift_id = s.id
             WHERE u.is_active = true 
             ORDER BY u.full_name
         `);
@@ -191,18 +209,38 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+app.get('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await db.query(`
+            SELECT u.*, d.name as department_name, r.name as role_name, w.name as default_warehouse_name, s.name as shift_name
+            FROM users u
+            LEFT JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_roles r ON u.role_id = r.id
+            LEFT JOIN warehouses w ON u.default_warehouse_id = w.id
+            LEFT JOIN shifts s ON u.shift_id = s.id
+            WHERE u.id = $1
+        `, [id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/users', async (req, res) => {
-    const { email, full_name, role_id, department_id, password_hash, default_warehouse_id } = req.body;
+    const { email, full_name, role_id, department_id, password_hash, default_warehouse_id, shift_id } = req.body;
     try {
         const { rows } = await db.query(
-            'INSERT INTO users (email, full_name, role_id, department_id, password_hash, default_warehouse_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            'INSERT INTO users (email, full_name, role_id, department_id, password_hash, default_warehouse_id, shift_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
             [
                 email,
                 full_name,
                 role_id === '' ? null : role_id,
                 department_id === '' ? null : department_id,
                 password_hash || 'default_hash',
-                default_warehouse_id === '' ? null : default_warehouse_id
+                default_warehouse_id === '' ? null : default_warehouse_id,
+                shift_id === '' ? null : shift_id
             ]
         );
         res.status(201).json(rows[0]);
@@ -213,10 +251,10 @@ app.post('/api/users', async (req, res) => {
 
 app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params;
-    const { email, full_name, role_id, department_id, is_active, default_warehouse_id } = req.body;
+    const { email, full_name, role_id, department_id, is_active, default_warehouse_id, shift_id } = req.body;
     try {
         const { rows } = await db.query(
-            'UPDATE users SET email = $1, full_name = $2, role_id = $3, department_id = $4, is_active = $5, default_warehouse_id = $6, updated_at = NOW() WHERE id = $7 RETURNING *',
+            'UPDATE users SET email = $1, full_name = $2, role_id = $3, department_id = $4, is_active = $5, default_warehouse_id = $6, shift_id = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
             [
                 email,
                 full_name,
@@ -224,6 +262,7 @@ app.put('/api/users/:id', async (req, res) => {
                 department_id === '' ? null : department_id,
                 is_active,
                 default_warehouse_id === '' ? null : default_warehouse_id,
+                shift_id === '' ? null : shift_id,
                 id
             ]
         );
@@ -654,6 +693,227 @@ app.post('/api/warehouses/fulfill-tool', async (req, res) => {
     } catch (err) {
         await db.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- SHIFTS (Turnos) ---
+app.get('/api/shifts', async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT * FROM shifts ORDER BY name');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/shifts', async (req, res) => {
+    const { name, description, daily_hours } = req.body;
+    try {
+        const { rows } = await db.query(
+            'INSERT INTO shifts (name, description, daily_hours) VALUES ($1, $2, $3) RETURNING *',
+            [name, description || '', daily_hours]
+        );
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/shifts/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, description, daily_hours } = req.body;
+    try {
+        const { rows } = await db.query(
+            'UPDATE shifts SET name = $1, description = $2, daily_hours = $3 WHERE id = $4 RETURNING *',
+            [name, description || '', daily_hours, id]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/shifts/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('DELETE FROM shifts WHERE id = $1', [id]);
+        res.json({ message: 'Shift deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- SETTINGS: ASSET IMAGE UPLOAD ---
+app.post('/api/assets/:id/image', upload.single('image'), async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+    try {
+        await db.query('UPDATE assets SET image_url = $1 WHERE id = $2', [imageUrl, id]);
+        res.json({ image_url: imageUrl });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- SETTINGS: PHOTO UPLOAD ---
+app.post('/api/users/:id/photo', upload.single('photo'), async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Construct URL (assuming server runs on localhost:3000)
+    // In production, use env var for base URL
+    const photoUrl = `/uploads/${req.file.filename}`;
+
+    try {
+        await db.query('UPDATE users SET photo_url = $1 WHERE id = $2', [photoUrl, id]);
+        res.json({ photo_url: photoUrl });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- SETTINGS: BULK IMPORT ---
+app.post('/api/upload-catalog/:type', upload.single('file'), async (req, res) => {
+    const { type } = req.params; // departments, roles, shifts, etc.
+    if (!req.file) {
+        return res.status(400).json({ error: 'No CSV file uploaded' });
+    }
+
+    try {
+        const fileContent = fs.readFileSync(req.file.path);
+        const records = parse(fileContent, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true
+        });
+
+        let insertedCount = 0;
+        let errors = [];
+
+        await db.query('BEGIN');
+
+        for (const record of records) {
+            try {
+                if (type === 'departments') {
+                    if (record.name) {
+                        await db.query('INSERT INTO departments (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [record.name]);
+                        insertedCount++;
+                    }
+                } else if (type === 'roles') {
+                    if (record.name) {
+                        await db.query('INSERT INTO roles (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING', [record.name, record.description || '']);
+                        insertedCount++;
+                    }
+                } else if (type === 'shifts') {
+                    if (record.name) {
+                        await db.query('INSERT INTO shifts (name, description, daily_hours) VALUES ($1, $2, $3)',
+                            [record.name, record.description || '', parseFloat(record.daily_hours) || 8.0]);
+                        insertedCount++;
+                    }
+                } else if (type === 'areas') {
+                    if (record.name) {
+                        await db.query('INSERT INTO areas (name, description) VALUES ($1, $2)', [record.name, record.description || '']);
+                        insertedCount++;
+                    }
+                }
+                // Add more types as needed
+            } catch (innerErr) {
+                errors.push({ record, error: innerErr.message });
+            }
+        }
+
+        await db.query('COMMIT');
+
+        // Cleanup uploaded file
+        fs.unlinkSync(req.file.path);
+
+        res.json({
+            message: `Processed ${records.length} records. Inserted ${insertedCount}.`,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (err) {
+        await db.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- USER SETTINGS ---
+app.get('/api/user-settings/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const { rows } = await db.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
+        if (rows.length === 0) {
+            return res.json({
+                user_id: userId,
+                theme: 'dark',
+                language: 'es',
+                notifications_enabled: true,
+                preferences: {}
+            });
+        }
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/user-settings/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { theme, language, notifications_enabled, preferences } = req.body;
+    try {
+        const { rows } = await db.query(`
+            INSERT INTO user_settings (user_id, theme, language, notifications_enabled, preferences, updated_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            ON CONFLICT (user_id) 
+            DO UPDATE SET 
+                theme = COALESCE($2, user_settings.theme), 
+                language = COALESCE($3, user_settings.language), 
+                notifications_enabled = COALESCE($4, user_settings.notifications_enabled),
+                preferences = COALESCE($5, user_settings.preferences),
+                updated_at = NOW()
+            RETURNING *
+        `, [userId, theme, language, notifications_enabled, preferences]);
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/users/:id/change-password', async (req, res) => {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    try {
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newPassword, id]);
+        res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/system-info', async (req, res) => {
+    try {
+        const dbRes = await db.query('SELECT version()');
+        res.json({
+            version: '1.0.0',
+            status: 'Operational',
+            dbStatus: 'Connected',
+            dbVersion: dbRes.rows[0].version,
+            uptime: process.uptime()
+        });
+    } catch (error) {
+        res.json({
+            version: '1.0.0',
+            status: 'Degraded',
+            dbStatus: 'Disconnected',
+            error: error.message
+        });
     }
 });
 
