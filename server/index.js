@@ -522,12 +522,15 @@ app.get('/api/inventory', async (req, res) => {
         const { rows } = await db.query(`
             SELECT i.*, 
                    c.name as category_name,
-                   COALESCE(SUM(iw.quantity), 0) as stock 
+                   COALESCE(SUM(iw.quantity), 0) as stock,
+                   MAX(iw.aisle) as aisle,
+                   MAX(iw.shelf) as shelf,
+                   MAX(iw.bin) as bin
             FROM inventory_items i 
             LEFT JOIN inventory_categories c ON i.category_id = c.id
             LEFT JOIN item_warehouses iw ON i.id = iw.inventory_item_id 
             WHERE i.is_active = true
-            GROUP BY i.id, c.name
+            GROUP BY i.id, c.name, i.manufacturer
             ORDER BY i.name
         `);
         res.json(rows);
@@ -542,7 +545,10 @@ app.get('/api/inventory/:id/stock', async (req, res) => {
         const { rows } = await db.query(`
             SELECT w.id as warehouse_id, w.name as warehouse_name, 
                    COALESCE(iw.quantity, 0) as quantity,
-                   COALESCE(iw.location_in_warehouse, '') as location_in_warehouse
+                   COALESCE(iw.location_in_warehouse, '') as location_in_warehouse,
+                   COALESCE(iw.aisle, '') as aisle,
+                   COALESCE(iw.shelf, '') as shelf,
+                   COALESCE(iw.bin, '') as bin
             FROM warehouses w
             LEFT JOIN item_warehouses iw ON w.id = iw.warehouse_id AND iw.inventory_item_id = $1
             ORDER BY w.name
@@ -554,41 +560,54 @@ app.get('/api/inventory/:id/stock', async (req, res) => {
 });
 
 app.post('/api/inventory', async (req, res) => {
-    const { sku, name, description, min_stock, unit_cost, category_id, initial_warehouse_id, initial_quantity, initial_location } = req.body;
+    const { sku, name, description, min_stock, unit_cost, category_id, manufacturer, stocks } = req.body;
+    console.log('Creating Item:', req.body); // Log request
     try {
-        // Insert item (bin_location deprecated, using empty string)
+        await db.query('BEGIN');
+        // Insert item 
         const { rows } = await db.query(
-            'INSERT INTO inventory_items (sku, name, description, min_stock, unit_cost, category_id, bin_location) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-            [sku, name, description, min_stock, unit_cost, category_id, '']
+            'INSERT INTO inventory_items (sku, name, description, min_stock, unit_cost, category_id, bin_location, manufacturer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [sku, name, description, min_stock, unit_cost, category_id || null, '', manufacturer]
         );
         const newItem = rows[0];
+        console.log('Item Created:', newItem.id);
 
-        // Insert initial stock if warehouse specified
-        if (initial_warehouse_id) {
-            await db.query(
-                `INSERT INTO item_warehouses (inventory_item_id, warehouse_id, quantity, location_in_warehouse) 
-                 VALUES ($1, $2, $3, $4) 
-                 ON CONFLICT (inventory_item_id, warehouse_id) DO UPDATE SET quantity = $3`,
-                [newItem.id, initial_warehouse_id, initial_quantity || 0, initial_location || '']
-            );
+        // Insert multiple warehouse stocks
+        if (stocks && Array.isArray(stocks)) {
+            for (const stock of stocks) {
+                if (stock.warehouse_id && (stock.quantity > 0 || stock.aisle || stock.shelf || stock.bin)) {
+                    console.log('Inserting Stock for Warehouse:', stock.warehouse_id);
+                    await db.query(
+                        `INSERT INTO item_warehouses (inventory_item_id, warehouse_id, quantity, location_in_warehouse, aisle, shelf, bin) 
+                         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                         ON CONFLICT (inventory_item_id, warehouse_id) DO UPDATE SET quantity = $3`,
+                        [newItem.id, stock.warehouse_id, stock.quantity || 0, '', stock.aisle, stock.shelf, stock.bin]
+                    );
+                }
+            }
         }
 
+        await db.query('COMMIT');
         res.status(201).json(newItem);
     } catch (err) {
+        await db.query('ROLLBACK');
+        console.error('Error Creating Item:', err);
+        const fs = require('fs');
+        fs.appendFileSync('server_error.log', new Date().toISOString() + ' ' + err.message + '\n' + JSON.stringify(req.body) + '\n');
         res.status(500).json({ error: err.message });
     }
 });
 
 app.post('/api/inventory/:id/stock', async (req, res) => {
     const { id } = req.params;
-    const { warehouse_id, quantity, location_in_warehouse } = req.body;
+    const { warehouse_id, quantity, location_in_warehouse, aisle, shelf, bin } = req.body;
     try {
         await db.query(
-            `INSERT INTO item_warehouses (inventory_item_id, warehouse_id, quantity, location_in_warehouse) 
-             VALUES ($1, $2, $3, $4) 
+            `INSERT INTO item_warehouses (inventory_item_id, warehouse_id, quantity, location_in_warehouse, aisle, shelf, bin) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) 
              ON CONFLICT (inventory_item_id, warehouse_id) 
-             DO UPDATE SET quantity = $3, location_in_warehouse = $4, updated_at = NOW()`,
-            [id, warehouse_id, quantity, location_in_warehouse || '']
+             DO UPDATE SET quantity = $3, location_in_warehouse = $4, aisle = $5, shelf = $6, bin = $7, updated_at = NOW()`,
+            [id, warehouse_id, quantity, location_in_warehouse || '', aisle, shelf, bin]
         );
         res.json({ success: true });
     } catch (err) {
@@ -598,17 +617,29 @@ app.post('/api/inventory/:id/stock', async (req, res) => {
 
 app.put('/api/inventory/:id', async (req, res) => {
     const { id } = req.params;
-    const { sku, name, description, min_stock, unit_cost, category_id } = req.body;
+    const { sku, name, description, min_stock, unit_cost, category_id, manufacturer, aisle, shelf, bin } = req.body;
     try {
         const { rows } = await db.query(
-            'UPDATE inventory_items SET sku = $1, name = $2, description = $3, min_stock = $4, unit_cost = $5, category_id = $6, updated_at = NOW() WHERE id = $7 RETURNING *',
-            [sku, name, description, min_stock, unit_cost, category_id, id]
+            'UPDATE inventory_items SET sku = $1, name = $2, description = $3, min_stock = $4, unit_cost = $5, category_id = $6, manufacturer = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
+            [sku, name, description, min_stock, unit_cost, category_id, manufacturer, id]
         );
+
+        // Optionally update location if provided (heuristic: update all locations for this item or just the first one?)
+        // For simplicity, we update location details in all warehouses where this item exists, OR we can ignore it here.
+        // User requested "modificacion", so we should try to update.
+        if (aisle || shelf || bin) {
+            await db.query(
+                'UPDATE item_warehouses SET aisle = COALESCE($1, aisle), shelf = COALESCE($2, shelf), bin = COALESCE($3, bin) WHERE inventory_item_id = $4',
+                [aisle, shelf, bin, id]
+            );
+        }
+
         res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 app.delete('/api/inventory/:id', async (req, res) => {
     const { id } = req.params;
@@ -780,7 +811,7 @@ app.post('/api/users/:id/photo', upload.single('photo'), async (req, res) => {
 
 // --- SETTINGS: BULK IMPORT ---
 app.post('/api/upload-catalog/:type', upload.single('file'), async (req, res) => {
-    const { type } = req.params; // departments, roles, shifts, etc.
+    const { type } = req.params;
     if (!req.file) {
         return res.status(400).json({ error: 'No CSV file uploaded' });
     }
@@ -812,26 +843,100 @@ app.post('/api/upload-catalog/:type', upload.single('file'), async (req, res) =>
                     }
                 } else if (type === 'shifts') {
                     if (record.name) {
-                        await db.query('INSERT INTO shifts (name, description, daily_hours) VALUES ($1, $2, $3)',
+                        await db.query('INSERT INTO shifts (name, description, daily_hours) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING',
                             [record.name, record.description || '', parseFloat(record.daily_hours) || 8.0]);
                         insertedCount++;
                     }
                 } else if (type === 'areas') {
                     if (record.name) {
-                        await db.query('INSERT INTO areas (name, description) VALUES ($1, $2)', [record.name, record.description || '']);
+                        const catRes = await db.query("SELECT id FROM asset_categories WHERE name = 'Área'");
+                        const catId = catRes.rows[0]?.id;
+                        if (catId) {
+                            const exist = await db.query("SELECT id FROM assets WHERE name = $1 AND category_id = $2", [record.name, catId]);
+                            if (exist.rows.length === 0) {
+                                await db.query('INSERT INTO assets (name, category_id, status) VALUES ($1, $2, $3)', [record.name, catId, 'ACTIVE']);
+                                insertedCount++;
+                            }
+                        }
+                    }
+                } else if (type === 'asset-categories') {
+                    if (record.name) {
+                        await db.query('INSERT INTO asset_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [record.name]);
+                        insertedCount++;
+                    }
+                } else if (type === 'warehouses') {
+                    if (record.name) {
+                        const areaRes = await db.query("SELECT a.id FROM assets a JOIN asset_categories c ON a.category_id = c.id WHERE a.name = $1 AND c.name = 'Área'", [record.area_name]);
+                        const areaId = areaRes.rows[0]?.id || null;
+                        await db.query('INSERT INTO warehouses (name, area_id, is_personal) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+                            [record.name, areaId, record.is_personal?.toString().toUpperCase() === 'TRUE']);
+                        insertedCount++;
+                    }
+                } else if (type === 'assets' || type === 'equipos') {
+                    if (record.name) {
+                        const catRes = await db.query("SELECT id FROM asset_categories WHERE name = $1", [record.category_name]);
+                        const areaRes = await db.query("SELECT a.id FROM assets a JOIN asset_categories c ON a.category_id = c.id WHERE a.name = $1 AND c.name = 'Área'", [record.area_name]);
+                        await db.query(
+                            'INSERT INTO assets (name, model, serial_number, category_id, parent_id, status, installation_date, acquisition_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING',
+                            [record.name, record.model, record.serial_number, catRes.rows[0]?.id, areaRes.rows[0]?.id, record.status || 'ACTIVE', record.acquisition_date, record.acquisition_date]
+                        );
+                        insertedCount++;
+                    }
+                } else if (type === 'inventory-categories') {
+                    if (record.name) {
+                        await db.query('INSERT INTO inventory_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [record.name]);
+                        insertedCount++;
+                    }
+                } else if (type === 'inventory-items') {
+                    if (record.sku && record.name) {
+                        const catRes = await db.query("SELECT id FROM inventory_categories WHERE name = $1", [record.category_name]);
+                        const itemRes = await db.query(
+                            'INSERT INTO inventory_items (sku, name, description, category_id, unit_of_measure, min_stock, max_stock, manufacturer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (sku) DO UPDATE SET name = $2, description = $3 RETURNING id',
+                            [record.sku, record.name, record.description, catRes.rows[0]?.id, record.unit_of_measure, parseInt(record.min_stock) || 0, parseInt(record.max_stock) || 0, record.Manufacturer || record.manufacturer]
+                        );
+                        const itemId = itemRes.rows[0].id;
+                        if (record.Aisle || record.Shelf || record.Bin || record.aisle || record.shelf || record.bin) {
+                            const whRes = await db.query("SELECT id FROM warehouses WHERE name = 'Almacén Central' LIMIT 1");
+                            const whId = whRes.rows[0]?.id;
+                            if (whId) {
+                                await db.query(
+                                    `INSERT INTO item_warehouses (inventory_item_id, warehouse_id, quantity, aisle, shelf, bin) 
+                                     VALUES ($1, $2, $3, $4, $5, $6) 
+                                     ON CONFLICT (inventory_item_id, warehouse_id) DO UPDATE SET aisle = $4, shelf = $5, bin = $6`,
+                                    [itemId, whId, 0, record.Aisle || record.aisle, record.Shelf || record.shelf, record.Bin || record.bin]
+                                );
+                            }
+                        }
+                        insertedCount++;
+                    }
+                } else if (type === 'users') {
+                    if (record.email) {
+                        const roleRes = await db.query("SELECT id FROM roles WHERE name = $1", [record.role_name]);
+                        const deptRes = await db.query("SELECT id FROM departments WHERE name = $1", [record.department_name]);
+                        const whRes = await db.query("SELECT id FROM warehouses WHERE name = $1", [record.default_warehouse_name]);
+                        await db.query(
+                            'INSERT INTO users (full_name, email, role_id, department_id, default_warehouse_id, password_hash) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (email) DO NOTHING',
+                            [record.full_name, record.email, roleRes.rows[0]?.id, deptRes.rows[0]?.id, whRes.rows[0]?.id, record.password || 'default_pass']
+                        );
+                        insertedCount++;
+                    }
+                } else if (type === 'maintenance-tasks') {
+                    if (record.name) {
+                        await db.query(
+                            'INSERT INTO maintenance_tasks (name, description, frequency_days, estimated_duration_hours) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING',
+                            [record.name, record.description, parseInt(record.frequency_days) || 0, parseFloat(record.estimated_duration_hours) || 0]
+                        );
                         insertedCount++;
                     }
                 }
-                // Add more types as needed
             } catch (innerErr) {
+                console.error(`Error importing record of type ${type}:`, innerErr);
                 errors.push({ record, error: innerErr.message });
             }
         }
 
         await db.query('COMMIT');
-
-        // Cleanup uploaded file
-        fs.unlinkSync(req.file.path);
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
         res.json({
             message: `Processed ${records.length} records. Inserted ${insertedCount}.`,
@@ -840,9 +945,11 @@ app.post('/api/upload-catalog/:type', upload.single('file'), async (req, res) =>
 
     } catch (err) {
         await db.query('ROLLBACK');
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // --- USER SETTINGS ---
 app.get('/api/user-settings/:userId', async (req, res) => {

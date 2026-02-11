@@ -121,6 +121,16 @@ Este conjunto de archivos CSV está diseñado para que pueda cargar datos reales
 
 ---
 
+### 1️⃣1️⃣ **11_turnos.csv**
+**Turnos de trabajo**
+- **Columnas:**
+  - `name`: Nombre del turno
+  - `description`: Descripción u horario
+  - `daily_hours`: Horas laborables por día (ej: 8.0, 7.5)
+- **Notas:** Estos turnos se asignan a los usuarios para el control de asistencia y planeación.
+
+---
+
 ## 🔧 FORMATO DE ARCHIVOS
 
 - **Codificación:** UTF-8
@@ -164,6 +174,7 @@ Si tiene dudas sobre cómo llenar algún campo o necesita agregar más columnas,
    - Usuarios de Mantenimiento → Almacenes personales
    - Otros usuarios → Sin almacén predeterminado
 10. Llene **10_tareas_mantenimiento.csv** con sus rutinas de mantenimiento
+11. Llene **11_turnos.csv** con los turnos de su planta
 
 ---
 

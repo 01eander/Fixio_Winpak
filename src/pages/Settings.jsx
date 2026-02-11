@@ -332,12 +332,18 @@ export default function Settings() {
                                         onChange={(e) => setImportType(e.target.value)}
                                         className="w-full bg-[var(--bg-app)] border border-[var(--border-glass)] rounded-lg p-3 text-[var(--text-main)] outline-none focus:border-blue-500"
                                     >
-                                        <option value="departments">Departamentos (departments)</option>
-                                        <option value="roles">Roles (roles)</option>
-                                        <option value="shifts">Turnos (shifts)</option>
-                                        <option value="areas">Áreas (areas)</option>
-                                        <option value="asset-categories">Categorías Equipos (asset-categories)</option>
-                                        <option value="warehouses">Almacenes (warehouses)</option>
+                                        <option value="departments">1. Departamentos (departments)</option>
+                                        <option value="roles">2. Roles (roles)</option>
+                                        <option value="areas">3. Áreas (areas)</option>
+                                        <option value="warehouses">4. Almacenes (warehouses)</option>
+                                        <option value="asset-categories">5. Categorías de Activos (asset-categories)</option>
+                                        <option value="assets">6. Equipos / Activos (assets)</option>
+                                        <option value="inventory-categories">7. Categorías de Inventario (inventory-categories)</option>
+                                        <option value="inventory-items">8. Items de Inventario (inventory-items)</option>
+                                        <option value="users">9. Usuarios (users)</option>
+                                        <option value="maintenance-tasks">10. Tareas de Mantenimiento (maintenance-tasks)</option>
+                                        <option value="shifts">11. Turnos (shifts)</option>
+
                                     </select>
                                 </div>
 

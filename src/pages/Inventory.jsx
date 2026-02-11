@@ -24,12 +24,16 @@ export default function Inventory() {
         name: '',
         description: '',
         category_id: '',
+        category_id: '',
+        manufacturer: '',
         min_stock: 0,
         unit_cost: 0,
         // For creation only
         initial_warehouse_id: '',
         initial_quantity: 0,
-        initial_location: ''
+        aisle: '',
+        shelf: '',
+        bin: ''
     });
 
     useEffect(() => {
@@ -90,31 +94,46 @@ export default function Inventory() {
         if (item) {
             setEditingItem(item);
             setFormData({
-                sku: item.sku || '',
                 name: item.name || '',
                 description: item.description || '',
                 category_id: item.category_id || '',
+                manufacturer: item.manufacturer || '',
                 min_stock: item.min_stock || 0,
                 unit_cost: item.unit_cost || 0,
                 initial_warehouse_id: '',
                 initial_quantity: 0,
-                initial_location: ''
+                aisle: '',
+                shelf: '',
+                bin: ''
             });
+
             await fetchStockDetails(item.id);
         } else {
             setEditingItem(null);
-            setStockDetails([]);
             setFormData({
                 sku: '',
                 name: '',
                 description: '',
                 category_id: '',
+                manufacturer: '',
                 min_stock: 0,
                 unit_cost: 0,
                 initial_warehouse_id: '',
                 initial_quantity: 0,
-                initial_location: ''
+                aisle: '',
+                shelf: '',
+                bin: ''
             });
+            // Initialize stock details for all warehouses
+            setStockDetails(warehouses.map(w => ({
+                warehouse_id: w.id,
+                warehouse_name: w.name,
+                quantity: 0,
+                location_in_warehouse: '',
+                aisle: '',
+                shelf: '',
+                bin: ''
+            })));
         }
         setIsModalOpen(true);
     };
@@ -143,11 +162,21 @@ export default function Inventory() {
             const method = editingItem ? 'PUT' : 'POST';
 
             // Clean up numbers
+            // Clean up numbers
             const payload = {
                 ...formData,
+                category_id: formData.category_id || null, // Handle empty string
                 min_stock: Number(formData.min_stock),
                 unit_cost: Number(formData.unit_cost),
-                initial_quantity: Number(formData.initial_quantity)
+                // Include stocks for creation
+                stocks: !editingItem ? stockDetails.map(stock => ({
+                    warehouse_id: stock.warehouse_id,
+                    quantity: Number(stock.quantity),
+                    location_in_warehouse: stock.location_in_warehouse,
+                    aisle: stock.aisle,
+                    shelf: stock.shelf,
+                    bin: stock.bin
+                })) : undefined
             };
 
             const response = await fetch(url, {
@@ -166,7 +195,10 @@ export default function Inventory() {
                             body: JSON.stringify({
                                 warehouse_id: stock.warehouse_id,
                                 quantity: Number(stock.quantity),
-                                location_in_warehouse: stock.location_in_warehouse
+                                location_in_warehouse: stock.location_in_warehouse,
+                                aisle: stock.aisle,
+                                shelf: stock.shelf,
+                                bin: stock.bin
                             })
                         })
                     ));
@@ -327,6 +359,10 @@ export default function Inventory() {
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Descripción</label>
                                 <textarea name="description" rows="2" className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded-lg p-2.5 text-white resize-none" value={formData.description} onChange={handleInputChange} />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Fabricante / Marca</label>
+                                <input type="text" name="manufacturer" className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded-lg p-2.5 text-white" value={formData.manufacturer} onChange={handleInputChange} />
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Min. Stock</label>
@@ -344,69 +380,60 @@ export default function Inventory() {
                                     <Warehouse size={18} /> Control de Almacenes
                                 </h4>
 
-                                {!editingItem ? (
-                                    // Creation Mode: Initial Assignment
-                                    <div className="bg-white/5 p-4 rounded-lg border border-[var(--border-glass)]">
-                                        <p className="text-sm text-[var(--text-muted)] mb-3">Asignación inicial de existencias (Opcional)</p>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div>
-                                                <label className="text-xs text-[var(--text-muted)]">Almacén</label>
-                                                <select name="initial_warehouse_id" className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded text-sm p-2 text-white" value={formData.initial_warehouse_id} onChange={handleInputChange}>
-                                                    <option value="">Ninguno</option>
-                                                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-[var(--text-muted)]">Cantidad</label>
-                                                <input type="number" name="initial_quantity" className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded text-sm p-2 text-white" value={formData.initial_quantity} onChange={handleInputChange} disabled={!formData.initial_warehouse_id} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-[var(--text-muted)]">Ubicación (Estante/Bin)</label>
-                                                <input type="text" name="initial_location" className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded text-sm p-2 text-white" value={formData.initial_location} onChange={handleInputChange} disabled={!formData.initial_warehouse_id} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // Edit Mode: Multi-warehouse management
-                                    <div className="bg-white/5 rounded-lg border border-[var(--border-glass)] overflow-hidden">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-white/10 text-[var(--text-muted)]">
-                                                <tr>
-                                                    <th className="p-3">Almacén</th>
-                                                    <th className="p-3 w-24">Cantidad</th>
-                                                    <th className="p-3">Ubicación</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-[var(--border-glass)]">
-                                                {stockDetails.map((line, index) => (
-                                                    <tr key={line.warehouse_id}>
-                                                        <td className="p-3 font-medium text-white">{line.warehouse_name}</td>
-                                                        <td className="p-3">
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-center text-white"
-                                                                value={line.quantity}
-                                                                onChange={(e) => handleStockChange(index, 'quantity', e.target.value)}
-                                                            />
-                                                        </td>
-                                                        <td className="p-3">
+                                <div className="bg-white/5 rounded-lg border border-[var(--border-glass)] overflow-hidden">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-white/10 text-[var(--text-muted)]">
+                                            <tr>
+                                                <th className="p-3">Almacén</th>
+                                                <th className="p-3 w-24">Cantidad</th>
+                                                <th className="p-3">Ubicación (Pasillo / Shelf / Bin)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-[var(--border-glass)]">
+                                            {stockDetails.map((line, index) => (
+                                                <tr key={line.warehouse_id}>
+                                                    <td className="p-3 font-medium text-white">{line.warehouse_name}</td>
+                                                    <td className="p-3 w-24">
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-center text-white"
+                                                            value={line.quantity}
+                                                            onChange={(e) => handleStockChange(index, 'quantity', e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="flex gap-2">
                                                             <input
                                                                 type="text"
-                                                                className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-white"
-                                                                placeholder="Ej. A-12"
-                                                                value={line.location_in_warehouse}
-                                                                onChange={(e) => handleStockChange(index, 'location_in_warehouse', e.target.value)}
+                                                                className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-white text-xs"
+                                                                placeholder="Pasillo"
+                                                                value={line.aisle || ''}
+                                                                onChange={(e) => handleStockChange(index, 'aisle', e.target.value)}
                                                             />
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {stockDetails.length === 0 && (
-                                                    <tr><td colSpan="3" className="p-4 text-center text-[var(--text-muted)]">No hay almacenes registrados.</td></tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                                            <input
+                                                                type="text"
+                                                                className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-white text-xs"
+                                                                placeholder="Shelf"
+                                                                value={line.shelf || ''}
+                                                                onChange={(e) => handleStockChange(index, 'shelf', e.target.value)}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded p-1 text-white text-xs"
+                                                                placeholder="Bin"
+                                                                value={line.bin || ''}
+                                                                onChange={(e) => handleStockChange(index, 'bin', e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {stockDetails.length === 0 && (
+                                                <tr><td colSpan="3" className="p-4 text-center text-[var(--text-muted)]">No hay almacenes registrados.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">

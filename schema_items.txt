@@ -1,0 +1,51 @@
+                                            Table "public.inventory_items"
+        Column        |           Type           | Collation | Nullable |                   Default                   
+----------------------+--------------------------+-----------+----------+---------------------------------------------
+ id                   | bigint                   |           | not null | nextval('inventory_items_id_seq'::regclass)
+ sku                  | character varying(50)    |           | not null | 
+ name                 | character varying(150)   |           | not null | 
+ description          | text                     |           |          | 
+ category_id          | integer                  |           |          | 
+ min_stock            | integer                  |           |          | 0
+ max_stock            | integer                  |           |          | 
+ current_stock        | numeric(10,2)            |           |          | 0
+ unit_cost            | numeric(10,2)            |           |          | 0
+ bin_location         | character varying(50)    |           |          | 
+ is_tool              | boolean                  |           |          | false
+ default_warehouse_id | integer                  |           |          | 
+ created_at           | timestamp with time zone |           |          | now()
+ updated_at           | timestamp with time zone |           |          | now()
+ manufacturer         | character varying(255)   |           |          | 
+Indexes:
+    "inventory_items_pkey" PRIMARY KEY, btree (id)
+    "inventory_items_sku_key" UNIQUE CONSTRAINT, btree (sku)
+Foreign-key constraints:
+    "inventory_items_default_warehouse_id_fkey" FOREIGN KEY (default_warehouse_id) REFERENCES warehouses(id)
+Referenced by:
+    TABLE "audit_items" CONSTRAINT "audit_items_item_id_fkey" FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT
+    TABLE "inventory_movements" CONSTRAINT "inventory_movements_item_id_fkey" FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT
+    TABLE "inventory_stock" CONSTRAINT "inventory_stock_inventory_item_id_fkey" FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id)
+    TABLE "item_warehouses" CONSTRAINT "item_warehouses_inventory_item_id_fkey" FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+    TABLE "wo_resources" CONSTRAINT "wo_resources_item_id_fkey" FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT
+
+                                              Table "public.item_warehouses"
+        Column         |            Type             | Collation | Nullable |                   Default                   
+-----------------------+-----------------------------+-----------+----------+---------------------------------------------
+ id                    | integer                     |           | not null | nextval('item_warehouses_id_seq'::regclass)
+ inventory_item_id     | integer                     |           |          | 
+ warehouse_id          | integer                     |           |          | 
+ quantity              | integer                     |           |          | 0
+ min_stock_limit       | integer                     |           |          | 0
+ max_stock_limit       | integer                     |           |          | 
+ location_in_warehouse | character varying(255)      |           |          | 
+ updated_at            | timestamp without time zone |           |          | now()
+ aisle                 | character varying(50)       |           |          | 
+ shelf                 | character varying(50)       |           |          | 
+ bin                   | character varying(50)       |           |          | 
+Indexes:
+    "item_warehouses_pkey" PRIMARY KEY, btree (id)
+    "item_warehouses_inventory_item_id_warehouse_id_key" UNIQUE CONSTRAINT, btree (inventory_item_id, warehouse_id)
+Foreign-key constraints:
+    "item_warehouses_inventory_item_id_fkey" FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+    "item_warehouses_warehouse_id_fkey" FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
+

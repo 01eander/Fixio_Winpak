@@ -1,0 +1,28 @@
+                 List of relations
+ Schema |         Name          | Type  |  Owner   
+--------+-----------------------+-------+----------
+ public | asset_categories      | table | postgres
+ public | assets                | table | postgres
+ public | audit_items           | table | postgres
+ public | departments           | table | postgres
+ public | failure_codes         | table | postgres
+ public | inventory_audits      | table | postgres
+ public | inventory_categories  | table | postgres
+ public | inventory_items       | table | postgres
+ public | inventory_movements   | table | postgres
+ public | inventory_stock       | table | postgres
+ public | item_warehouses       | table | postgres
+ public | job_tools             | table | postgres
+ public | maintenance_tasks     | table | postgres
+ public | shifts                | table | postgres
+ public | user_roles            | table | postgres
+ public | user_settings         | table | postgres
+ public | user_tools            | table | postgres
+ public | users                 | table | postgres
+ public | warehouses            | table | postgres
+ public | wo_resources          | table | postgres
+ public | work_order_activities | table | postgres
+ public | work_order_tasks      | table | postgres
+ public | work_orders           | table | postgres
+(23 rows)
+
