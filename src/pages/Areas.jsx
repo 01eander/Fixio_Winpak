@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Users, Target, Factory, FileDown, Table, ArrowLeft, Plus, X, Save, Edit, Trash2, Upload } from 'lucide-react';
 import { Link } from 'wouter';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Areas() {
     const [areas, setAreas] = useState([]);
@@ -24,26 +24,25 @@ export default function Areas() {
 
     const fetchAreas = async () => {
         try {
-            // 1. Fetch Categories to find 'Área' ID
-            const catResponse = await fetch(`${API_URL}/asset-categories`);
-            let areaId = null;
+            // Fetch areas and equipment (to count equipment per area)
+            const [areasRes, equipRes] = await Promise.all([
+                fetch(`${API_URL}/areas`),
+                fetch(`${API_URL}/equipment`)
+            ]);
 
-            if (catResponse.ok) {
-                const categories = await catResponse.json();
-                const areaCat = categories.find(c => ['ÁREA', 'AREA'].includes(c.name.toUpperCase()));
-                if (areaCat) {
-                    setAreaCategoryId(areaCat.id);
-                    areaId = areaCat.id;
-                }
-            }
+            if (areasRes.ok && equipRes.ok) {
+                const areasData = await areasRes.json();
+                const equipData = await equipRes.json();
 
-            // 2. Fetch Assets using ID (preferred) or fallback to string
-            const query = areaId ? `category_id=${areaId}` : 'category=AREA';
-            const response = await fetch(`${API_URL}/assets?${query}`);
+                // Hydrate areas with equipment count if needed (currently model is mapped to description)
+                // We'll keep it simple for now as the view expects basic area data
+                // If we want to show equipment count, we can calculate it here:
+                const areasWithCount = areasData.map(area => ({
+                    ...area,
+                    equipmentCount: equipData.filter(e => e.area_id === area.id).length
+                }));
 
-            if (response.ok) {
-                const data = await response.json();
-                setAreas(data);
+                setAreas(areasWithCount);
             }
         } catch (error) {
             console.error('Error loading areas:', error);
@@ -57,7 +56,7 @@ export default function Areas() {
             setEditingItem(item);
             setFormData({
                 name: item.name,
-                description: item.model || '',
+                description: item.description || '', // Now using real description column if exists, or fallback
                 manager: ''
             });
             setSelectedImage(null);
@@ -82,42 +81,32 @@ export default function Areas() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const body = {
-                name: formData.name,
-                category: 'AREA', // keeping string as fallback
-                category_id: areaCategoryId,
-                model: formData.description,
-                status: editingItem ? editingItem.status : 'ACTIVE'
-            };
+            const formDataToSend = new FormData();
+            formDataToSend.append('name', formData.name);
+            formDataToSend.append('description', formData.description);
+            if (selectedImage) {
+                formDataToSend.append('image', selectedImage);
+            } else if (editingItem?.image_url) {
+                formDataToSend.append('image_url', editingItem.image_url);
+            }
 
-            const url = editingItem ? `${API_URL}/assets/${editingItem.id}` : `${API_URL}/assets`;
+            const url = editingItem ? `${API_URL}/areas/${editingItem.id}` : `${API_URL}/areas`;
             const method = editingItem ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: formDataToSend // FormData handles Content-Type automatically
             });
 
             if (response.ok) {
-                const data = await response.json();
-
-                // Upload image if selected
-                if (selectedImage) {
-                    const assetId = editingItem ? editingItem.id : data.id;
-                    const imageFormData = new FormData();
-                    imageFormData.append('image', selectedImage);
-
-                    await fetch(`${API_URL}/assets/${assetId}/image`, {
-                        method: 'POST',
-                        body: imageFormData
-                    });
-                }
-
+                const updatedArea = await response.json();
+                console.log('Area saved successfully:', updatedArea);
                 fetchAreas();
                 handleCloseModal();
             } else {
-                alert('Error al guardar');
+                const errorData = await response.json();
+                console.error('Save failed:', errorData);
+                alert('Error al guardar: ' + (errorData.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error saving area:', error);
@@ -127,7 +116,7 @@ export default function Areas() {
     const handleDelete = async (id) => {
         if (!confirm('¿Estás seguro de eliminar esta área?')) return;
         try {
-            const response = await fetch(`${API_URL}/assets/${id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/areas/${id}`, { method: 'DELETE' });
             if (response.ok) fetchAreas();
             else {
                 const data = await response.json();
@@ -199,7 +188,7 @@ export default function Areas() {
                             <div className="h-32 overflow-hidden relative bg-[var(--bg-panel-dark)]">
                                 {area.image_url ? (
                                     <img
-                                        src={area.image_url.startsWith('http') ? area.image_url : `${API_URL}${area.image_url}`}
+                                        src={area.image_url.startsWith('http') ? area.image_url : `${API_URL}/uploads/${area.image_url}`}
                                         alt={area.name}
                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
@@ -218,7 +207,7 @@ export default function Areas() {
 
                             <div className="p-5 space-y-4">
                                 <p className="text-sm text-[var(--text-muted)] min-h-[40px]">
-                                    {area.model || "Sin descripción"}
+                                    {area.description || "Sin descripción"}
                                 </p>
 
                                 <div className="flex flex-col gap-2">

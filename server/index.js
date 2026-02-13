@@ -1,4 +1,5 @@
 const express = require('express');
+console.log("\n\n!!! ESTE ES EL CODIGO CORRECTO - VERSION ANTIGRAVITY v3 !!!\n\n");
 const cors = require('cors');
 const db = require('./db');
 const multer = require('multer');
@@ -7,16 +8,26 @@ const fs = require('fs');
 const { parse } = require('csv-parse/sync');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3001; // process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/api/ping', (req, res) => {
+    console.log("PING RECIBIDO!");
+    res.json({ message: 'PONG - Backend is alive on 3001' });
+});
+
 // Multer Configuration
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, UPLOADS_DIR);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -69,7 +80,7 @@ app.delete('/api/departments/:id', async (req, res) => {
 // --- CATALOGS: ROLES ---
 app.get('/api/roles', async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT * FROM user_roles ORDER BY name');
+        const { rows } = await db.query('SELECT * FROM roles ORDER BY name');
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -79,7 +90,7 @@ app.get('/api/roles', async (req, res) => {
 app.post('/api/roles', async (req, res) => {
     try {
         const { name } = req.body;
-        const { rows } = await db.query('INSERT INTO user_roles (name) VALUES ($1) RETURNING *', [name]);
+        const { rows } = await db.query('INSERT INTO roles (name) VALUES ($1) RETURNING *', [name]);
         res.status(201).json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -90,7 +101,7 @@ app.put('/api/roles/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { name } = req.body;
-        const { rows } = await db.query('UPDATE user_roles SET name = $1 WHERE id = $2 RETURNING *', [name, id]);
+        const { rows } = await db.query('UPDATE roles SET name = $1 WHERE id = $2 RETURNING *', [name, id]);
         res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -100,7 +111,7 @@ app.put('/api/roles/:id', async (req, res) => {
 app.delete('/api/roles/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.query('DELETE FROM user_roles WHERE id = $1', [id]);
+        await db.query('DELETE FROM roles WHERE id = $1', [id]);
         res.json({ message: 'Deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -197,7 +208,7 @@ app.get('/api/users', async (req, res) => {
             SELECT u.*, d.name as department_name, r.name as role_name, w.name as default_warehouse_name, s.name as shift_name
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
-            LEFT JOIN user_roles r ON u.role_id = r.id
+            LEFT JOIN roles r ON u.role_id = r.id
             LEFT JOIN warehouses w ON u.default_warehouse_id = w.id
             LEFT JOIN shifts s ON u.shift_id = s.id
             WHERE u.is_active = true 
@@ -216,7 +227,7 @@ app.get('/api/users/:id', async (req, res) => {
             SELECT u.*, d.name as department_name, r.name as role_name, w.name as default_warehouse_name, s.name as shift_name
             FROM users u
             LEFT JOIN departments d ON u.department_id = d.id
-            LEFT JOIN user_roles r ON u.role_id = r.id
+            LEFT JOIN roles r ON u.role_id = r.id
             LEFT JOIN warehouses w ON u.default_warehouse_id = w.id
             LEFT JOIN shifts s ON u.shift_id = s.id
             WHERE u.id = $1
@@ -327,26 +338,84 @@ app.delete('/api/users/:id/tools/:asset_id', async (req, res) => {
 });
 
 // --- ASSETS (Equipos/Áreas with new Categories) ---
-app.get('/api/assets', async (req, res) => {
-    const { category, category_id } = req.query;
+// --- CATALOGS: AREAS (New Table) ---
+app.get('/api/areas', async (req, res) => {
     try {
-        let query = `
-            SELECT a.*, c.name as category_name 
-            FROM assets a 
-            LEFT JOIN asset_categories c ON a.category_id = c.id
-            WHERE a.status != 'SCRAPPED'
-        `;
-        const params = [];
-        if (category_id) {
-            query += ' AND a.category_id = $1';
-            params.push(category_id);
-        } else if (category) {
-            // Deprecated: verify if we still support string category
-            query += ' AND (a.category = $1 OR c.name = $1)'; // Support both for transition
-            params.push(category);
+        const { rows } = await db.query('SELECT * FROM areas ORDER BY name');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/areas', upload.single('image'), async (req, res) => {
+    try {
+        const { name, description } = req.body;
+        const imageUrl = req.file ? req.file.filename : null; // Store only filename
+
+        const { rows } = await db.query(
+            'INSERT INTO areas (name, description, image_url) VALUES ($1, $2, $3) RETURNING *',
+            [name, description || '', imageUrl]
+        );
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        console.error('Error creating area:', err);
+        fs.appendFileSync('server_debug.log', `[${new Date().toISOString()}] Error creating area: ${err.message}\n`);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/areas/:id', upload.single('image'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description } = req.body;
+        let imageUrl = req.body.image_url || null;
+
+        if (req.file) {
+            imageUrl = req.file.filename; // Store only filename
         }
 
-        query += ' ORDER BY a.name';
+        const { rows } = await db.query(
+            'UPDATE areas SET name = $1, description = $2, image_url = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
+            [name, description, imageUrl, id]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Error updating area:', err);
+        fs.appendFileSync('server_debug.log', `[${new Date().toISOString()}] Error updating area ${req.params.id}: ${err.message}\n`);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/areas/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.query('DELETE FROM areas WHERE id = $1', [id]);
+        res.json({ message: 'Deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- CATALOGS: EQUIPMENT (New Table) ---
+app.get('/api/equipment', async (req, res) => {
+    const { area_id } = req.query;
+    try {
+        let query = `
+            SELECT e.*, c.name as category_name, a.name as area_name, p.name as parent_name
+            FROM equipment e
+            LEFT JOIN asset_categories c ON e.category_id = c.id
+            LEFT JOIN areas a ON e.area_id = a.id
+            LEFT JOIN equipment p ON e.parent_id = p.id
+            WHERE e.status != 'SCRAPPED'
+        `;
+        const params = [];
+        if (area_id) {
+            query += ' AND e.area_id = $1';
+            params.push(area_id);
+        }
+
+        query += ' ORDER BY e.name';
         const { rows } = await db.query(query, params);
         res.json(rows);
     } catch (err) {
@@ -354,14 +423,20 @@ app.get('/api/assets', async (req, res) => {
     }
 });
 
-app.post('/api/assets', async (req, res) => {
-    const { name, category_id, status, model, serial_number, parent_id, category } = req.body;
+app.post('/api/equipment', async (req, res) => {
+    const { name, model, serial_number, category_id, area_id, parent_id, status } = req.body;
     try {
-        // If category_id not provided, try to find it via category name for backward compat? Or enforce category_id
-        // Let's assume frontend sends category_id now.
         const { rows } = await db.query(
-            'INSERT INTO assets (name, category_id, status, model, serial_number, parent_id, category) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-            [name, category_id, status || 'ACTIVE', model, serial_number, parent_id, category] // keeping 'category' string for safety if column exists
+            'INSERT INTO equipment (name, model, serial_number, category_id, area_id, parent_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [
+                name,
+                model,
+                serial_number,
+                category_id || null,
+                area_id || null,
+                parent_id || null,
+                status || 'ACTIVE'
+            ]
         );
         res.status(201).json(rows[0]);
     } catch (err) {
@@ -369,13 +444,22 @@ app.post('/api/assets', async (req, res) => {
     }
 });
 
-app.put('/api/assets/:id', async (req, res) => {
+app.put('/api/equipment/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, category_id, status, model, serial_number, parent_id } = req.body;
+    const { name, model, serial_number, category_id, area_id, parent_id, status } = req.body;
     try {
         const { rows } = await db.query(
-            'UPDATE assets SET name = $1, category_id = $2, status = $3, model = $4, serial_number = $5, parent_id = $6, updated_at = NOW() WHERE id = $7 RETURNING *',
-            [name, category_id, status, model, serial_number, parent_id, id]
+            'UPDATE equipment SET name = $1, model = $2, serial_number = $3, category_id = $4, area_id = $5, parent_id = $6, status = $7, updated_at = NOW() WHERE id = $8 RETURNING *',
+            [
+                name,
+                model,
+                serial_number,
+                category_id || null,
+                area_id || null,
+                parent_id || null,
+                status,
+                id
+            ]
         );
         res.json(rows[0]);
     } catch (err) {
@@ -383,15 +467,32 @@ app.put('/api/assets/:id', async (req, res) => {
     }
 });
 
+app.delete('/api/equipment/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('UPDATE equipment SET status = \'SCRAPPED\', updated_at = NOW() WHERE id = $1', [id]);
+        res.json({ message: 'Equipment scrapped' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Legacy asset endpoint for compatibility (redirects to equipment + areas could be complex, maybe keep simple for now or deprecate)
+// For now, let's keep a simple legacy endpoint if needed, but Frontend will switch to /api/equipment
+
+
+
+
 // ... (Delete asset as before)
 
 // --- WAREHOUSES (with Area) ---
 app.get('/api/warehouses', async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT w.*, a.name as area_name 
+            SELECT w.*, a.name as area_name, u.full_name as manager_name
             FROM warehouses w
             LEFT JOIN assets a ON w.area_id = a.id
+            LEFT JOIN users u ON w.manager_id = u.id
             ORDER BY w.name
         `);
         res.json(rows);
@@ -401,11 +502,11 @@ app.get('/api/warehouses', async (req, res) => {
 });
 
 app.post('/api/warehouses', async (req, res) => {
-    const { name, area_id, is_personal } = req.body;
+    const { name, area_id, is_personal, manager_id } = req.body;
     try {
         const { rows } = await db.query(
-            'INSERT INTO warehouses (name, area_id, is_personal) VALUES ($1, $2, $3) RETURNING *',
-            [name, area_id || null, is_personal || false]
+            'INSERT INTO warehouses (name, area_id, is_personal, manager_id) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, area_id || null, is_personal || false, manager_id || null]
         );
         res.status(201).json(rows[0]);
     } catch (err) {
@@ -415,11 +516,11 @@ app.post('/api/warehouses', async (req, res) => {
 
 app.put('/api/warehouses/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, area_id, is_personal } = req.body;
+    const { name, area_id, is_personal, manager_id } = req.body;
     try {
         const { rows } = await db.query(
-            'UPDATE warehouses SET name = $1, area_id = $2, is_personal = $3 WHERE id = $4 RETURNING *',
-            [name, area_id || null, is_personal || false, id]
+            'UPDATE warehouses SET name = $1, area_id = $2, is_personal = $3, manager_id = $4 WHERE id = $5 RETURNING *',
+            [name, area_id || null, is_personal || false, manager_id || null, id]
         );
         res.json(rows[0]);
     } catch (err) {
@@ -1022,6 +1123,700 @@ app.get('/api/system-info', async (req, res) => {
             error: error.message
         });
     }
+});
+
+// ============================================
+// BULK CSV IMPORT ENDPOINTS
+// ============================================
+
+// CSV Upload Configuration
+const csvUpload = multer({
+    storage: multer.memoryStorage(),
+    fileFilter: (req, file, cb) => {
+        if (path.extname(file.originalname).toLowerCase() !== '.csv') {
+            return cb(new Error('Only CSV files are allowed'));
+        }
+        cb(null, true);
+    }
+});
+
+// Main CSV Upload Handler
+app.post('/api/upload-catalog/:type', csvUpload.single('file'), async (req, res) => {
+    const { type } = req.params;
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    }
+
+    try {
+        let fileContent;
+        if (req.file.buffer) {
+            fileContent = req.file.buffer.toString('utf-8');
+        } else if (req.file.path) {
+            console.log(`[DEBUG] Leyendo archivo desde disco: ${req.file.path}`);
+            fileContent = fs.readFileSync(req.file.path, 'utf-8');
+            // Intentar borrar archivo temporal para limpiar
+            try { fs.unlinkSync(req.file.path); } catch (e) { console.error('Error borrando temp:', e); }
+        } else {
+            throw new Error('No se pudo leer el contenido del archivo (ni buffer ni path)');
+        }
+
+        const records = parse(fileContent, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            bom: true
+        });
+
+        if (!records || records.length === 0) {
+            return res.status(400).json({ error: 'El archivo CSV está vacío o no tiene el formato correcto' });
+        }
+
+        console.log(`[DEBUG] Recibidos ${records.length} registros para: ${type}`);
+        console.log(`[DEBUG] Columnas detectadas: ${Object.keys(records[0]).join(', ')}`);
+        console.log(`[DEBUG] Primer registro:`, records[0]);
+
+        let result;
+        switch (type) {
+            case 'departments':
+                result = await importDepartments(records);
+                break;
+            case 'roles':
+                result = await importRoles(records);
+                break;
+            case 'areas':
+                result = await importAreas(records);
+                break;
+            case 'warehouses':
+                result = await importWarehouses(records);
+                break;
+            case 'asset-categories':
+                result = await importAssetCategories(records);
+                break;
+            case 'assets':
+                result = await importAssets(records);
+                break;
+            case 'inventory-categories':
+                result = await importInventoryCategories(records);
+                break;
+            case 'inventory-items':
+                result = await importInventoryItems(records);
+                break;
+            case 'users':
+                result = await importUsers(records);
+                break;
+            case 'maintenance-tasks':
+                result = await importMaintenanceTasks(records);
+                break;
+            case 'shifts':
+                result = await importShifts(records);
+                break;
+            default:
+                return res.status(400).json({ error: `Tipo de catálogo no soportado: ${type}` });
+        }
+
+        res.json(result);
+    } catch (error) {
+        console.error('CSV Import Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ============================================
+// IMPORT FUNCTIONS
+// ============================================
+
+async function importDepartments(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE departments RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                await db.query(
+                    'INSERT INTO departments (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+                    [record.name.trim()]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `¡¡¡ EXITO TOTAL: Se cargaron ${imported} departamentos !!!`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importRoles(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE roles RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                await db.query(
+                    'INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+                    [record.name.trim()]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} roles correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importAreas(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Now using dedicated areas table
+        await db.query('TRUNCATE TABLE areas RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                await db.query(
+                    'INSERT INTO areas (name, description) VALUES ($1, $2)',
+                    [record.name.trim(), record.description || '']
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} áreas correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importWarehouses(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE warehouses RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                let areaId = null;
+                if (record.area_name && record.area_name.trim() !== '') {
+                    const areaResult = await db.query(
+                        'SELECT id FROM assets WHERE name = $1 LIMIT 1',
+                        [record.area_name.trim()]
+                    );
+
+                    if (areaResult.rows.length === 0) {
+                        errors.push({ record: i + 2, error: `Área "${record.area_name}" no encontrada` });
+                        continue;
+                    }
+                    areaId = areaResult.rows[0].id;
+                }
+
+                const isPersonal = record.is_personal &&
+                    (record.is_personal.toUpperCase() === 'TRUE' || record.is_personal === '1');
+
+                await db.query(
+                    'INSERT INTO warehouses (name, area_id, is_personal) VALUES ($1, $2, $3)',
+                    [record.name.trim(), areaId, isPersonal]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} almacenes correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importAssetCategories(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE asset_categories RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                await db.query(
+                    'INSERT INTO asset_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+                    [record.name.trim()]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} categorías de activos correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importAssets(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // NOTA: No truncamos aquí porque borraríamos las Áreas cargadas en el paso anterior.
+        // Solo eliminamos los que NO sean categorías de tipo AREA para limpiar equipos de prueba
+        // pero esto no permite RESTART IDENTITY fácilmente sin afectar las áreas.
+        // Se asume que el usuario quiere conservar las áreas del paso 3.
+        await db.query("DELETE FROM assets WHERE category != 'AREA' OR category IS NULL");
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                if (!record.category_name || record.category_name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'La categoría es obligatoria' });
+                    continue;
+                }
+
+                // Get category_id
+                const categoryResult = await db.query(
+                    'SELECT id FROM asset_categories WHERE name = $1',
+                    [record.category_name.trim()]
+                );
+
+                if (categoryResult.rows.length === 0) {
+                    errors.push({ record: i + 2, error: `Categoría "${record.category_name}" no encontrada` });
+                    continue;
+                }
+
+                const categoryId = categoryResult.rows[0].id;
+
+                // Get area_id if provided
+                let areaId = null;
+                if (record.area_name && record.area_name.trim() !== '') {
+                    const areaResult = await db.query(
+                        'SELECT id FROM assets WHERE name = $1 LIMIT 1',
+                        [record.area_name.trim()]
+                    );
+
+                    if (areaResult.rows.length > 0) {
+                        areaId = areaResult.rows[0].id;
+                    }
+                }
+
+                const status = record.status && record.status.trim() !== ''
+                    ? record.status.trim().toUpperCase()
+                    : 'OPERATIVO';
+
+                await db.query(
+                    `INSERT INTO assets (name, model, serial_number, category_id, parent_id, status, acquisition_date) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [
+                        record.name.trim(),
+                        record.model || '',
+                        record.serial_number || '',
+                        categoryId,
+                        areaId,
+                        status,
+                        record.acquisition_date || null
+                    ]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} equipos/activos correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importInventoryCategories(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE inventory_categories RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                await db.query(
+                    'INSERT INTO inventory_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+                    [record.name.trim()]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} categorías de inventario correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importInventoryItems(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE inventory_items RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                if (!record.sku || record.sku.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El SKU es obligatorio' });
+                    continue;
+                }
+
+                // Get category_id
+                let categoryId = null;
+                if (record.category_name && record.category_name.trim() !== '') {
+                    const categoryResult = await db.query(
+                        'SELECT id FROM inventory_categories WHERE name = $1',
+                        [record.category_name.trim()]
+                    );
+
+                    if (categoryResult.rows.length === 0) {
+                        errors.push({ record: i + 2, error: `Categoría "${record.category_name}" no encontrada` });
+                        continue;
+                    }
+                    categoryId = categoryResult.rows[0].id;
+                }
+
+                const minStock = record.min_stock && !isNaN(record.min_stock) ? parseInt(record.min_stock) : 0;
+                const maxStock = record.max_stock && !isNaN(record.max_stock) ? parseInt(record.max_stock) : 0;
+
+                await db.query(
+                    `INSERT INTO inventory_items (name, description, sku, category_id, unit_of_measure, min_stock, max_stock, manufacturer) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [
+                        record.name.trim(),
+                        record.description || '',
+                        record.sku.trim(),
+                        categoryId,
+                        record.unit_of_measure || 'Pieza',
+                        minStock,
+                        maxStock,
+                        record.Manufacturer || record.manufacturer || ''
+                    ]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} items de inventario correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importUsers(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.full_name || record.full_name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre completo es obligatorio' });
+                    continue;
+                }
+
+                if (!record.email || record.email.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El email es obligatorio' });
+                    continue;
+                }
+
+                // Get role_id
+                let roleId = null;
+                if (record.role_name && record.role_name.trim() !== '') {
+                    const roleResult = await db.query(
+                        'SELECT id FROM roles WHERE name = $1',
+                        [record.role_name.trim()]
+                    );
+
+                    if (roleResult.rows.length === 0) {
+                        errors.push({ record: i + 2, error: `Rol "${record.role_name}" no encontrado` });
+                        continue;
+                    }
+                    roleId = roleResult.rows[0].id;
+                }
+
+                // Get department_id
+                let departmentId = null;
+                if (record.department_name && record.department_name.trim() !== '') {
+                    const deptResult = await db.query(
+                        'SELECT id FROM departments WHERE name = $1',
+                        [record.department_name.trim()]
+                    );
+
+                    if (deptResult.rows.length === 0) {
+                        errors.push({ record: i + 2, error: `Departamento "${record.department_name}" no encontrado` });
+                        continue;
+                    }
+                    departmentId = deptResult.rows[0].id;
+                }
+
+                // Get warehouse_id
+                let warehouseId = null;
+                if (record.default_warehouse_name && record.default_warehouse_name.trim() !== '') {
+                    const warehouseResult = await db.query(
+                        'SELECT id FROM warehouses WHERE name = $1',
+                        [record.default_warehouse_name.trim()]
+                    );
+
+                    if (warehouseResult.rows.length === 0) {
+                        errors.push({ record: i + 2, error: `Almacén "${record.default_warehouse_name}" no encontrado` });
+                        continue;
+                    }
+                    warehouseId = warehouseResult.rows[0].id;
+                }
+
+                const passwordHash = record.password || 'default_password';
+
+                await db.query(
+                    `INSERT INTO users (full_name, email, role_id, department_id, password_hash, default_warehouse_id) 
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [
+                        record.full_name.trim(),
+                        record.email.trim(),
+                        roleId,
+                        departmentId,
+                        passwordHash,
+                        warehouseId
+                    ]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} usuarios correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importMaintenanceTasks(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE maintenance_tasks RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                const frequencyDays = record.frequency_days && !isNaN(record.frequency_days)
+                    ? parseInt(record.frequency_days)
+                    : 30;
+
+                const estimatedDuration = record.estimated_duration_hours && !isNaN(record.estimated_duration_hours)
+                    ? parseFloat(record.estimated_duration_hours)
+                    : 1;
+
+                await db.query(
+                    `INSERT INTO maintenance_tasks (name, description, type, estimated_time, base_cost) 
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [
+                        record.name.trim(),
+                        record.description || '',
+                        'PREVENTIVO',
+                        estimatedDuration,
+                        0
+                    ]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} tareas de mantenimiento correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+async function importShifts(records) {
+    const errors = [];
+    let imported = 0;
+
+    await db.query('BEGIN');
+    try {
+        // Limpiar tabla y resetear IDs
+        await db.query('TRUNCATE TABLE shifts RESTART IDENTITY CASCADE');
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                if (!record.name || record.name.trim() === '') {
+                    errors.push({ record: i + 2, error: 'El nombre es obligatorio' });
+                    continue;
+                }
+
+                const dailyHours = record.daily_hours && !isNaN(record.daily_hours)
+                    ? parseFloat(record.daily_hours)
+                    : 8.0;
+
+                await db.query(
+                    'INSERT INTO shifts (name, description, daily_hours) VALUES ($1, $2, $3)',
+                    [
+                        record.name.trim(),
+                        record.description || '',
+                        dailyHours
+                    ]
+                );
+                imported++;
+            } catch (err) {
+                errors.push({ record: i + 2, error: err.message });
+            }
+        }
+        await db.query('COMMIT');
+        return {
+            message: `Se importaron ${imported} turnos correctamente`,
+            errors: errors.length > 0 ? errors : undefined
+        };
+    } catch (err) {
+        await db.query('ROLLBACK');
+        throw err;
+    }
+}
+
+// Global Error Handler must be LAST
+app.use((err, req, res, next) => {
+    console.error('UNHANDLED ERROR:', err);
+    res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
 app.listen(port, () => {
