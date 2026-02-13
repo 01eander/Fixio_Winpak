@@ -1,0 +1,17 @@
+--- Iniciando carga de usuarios ---
+Le├¡dos 11 registros.
+Limpiando tabla users...
+Error en registro Jos├® Daniel Hern├índez Hern├índez: insert or update on table "users" violates foreign key constraint "users_role_id_fkey"
+Error en registro Mario Alberto Porras Porras: current transaction is aborted, commands ignored until end of transaction block
+Generando email para Fever Daniel Valenzo: fever.daniel.valenzo@winpak.com
+Error en registro Fever Daniel Valenzo: current transaction is aborted, commands ignored until end of transaction block
+Error en registro Daniel Hern├índez Estrada: current transaction is aborted, commands ignored until end of transaction block
+Error en registro Miguel Cruz Vel├ízquez: current transaction is aborted, commands ignored until end of transaction block
+Error en registro Jos├® El├¡as Gonzalez Nieves: current transaction is aborted, commands ignored until end of transaction block
+Error en registro Pedro Gomes ├ülvarez: current transaction is aborted, commands ignored until end of transaction block
+Error en registro Fermin Montoya Olvera: current transaction is aborted, commands ignored until end of transaction block
+Error en registro W70PRESS: current transaction is aborted, commands ignored until end of transaction block
+Error en registro W70LAMIN: current transaction is aborted, commands ignored until end of transaction block
+Error en registro W70CORTA: current transaction is aborted, commands ignored until end of transaction block
+Carga finalizada. Importados: 0, Saltados: 11
+Restaurando usuario administrador...

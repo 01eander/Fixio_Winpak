@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, ClipboardList, ArrowLeft, Clock, FileDown, Table, Plus, X, Save, Edit, Trash2, Wrench, Package } from 'lucide-react';
 import { Link } from 'wouter';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Jobs() {
     const [jobs, setJobs] = useState([]);

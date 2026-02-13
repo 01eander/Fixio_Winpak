@@ -1,0 +1,26 @@
+[
+  {
+    "conname": "users_default_warehouse_id_fkey",
+    "pg_get_constraintdef": "FOREIGN KEY (default_warehouse_id) REFERENCES warehouses(id) ON DELETE SET NULL"
+  },
+  {
+    "conname": "users_department_id_fkey",
+    "pg_get_constraintdef": "FOREIGN KEY (department_id) REFERENCES departments(id)"
+  },
+  {
+    "conname": "users_email_key",
+    "pg_get_constraintdef": "UNIQUE (email)"
+  },
+  {
+    "conname": "users_pkey",
+    "pg_get_constraintdef": "PRIMARY KEY (id)"
+  },
+  {
+    "conname": "users_role_id_fkey",
+    "pg_get_constraintdef": "FOREIGN KEY (role_id) REFERENCES roles(id)"
+  },
+  {
+    "conname": "users_shift_id_fkey",
+    "pg_get_constraintdef": "FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE SET NULL"
+  }
+]

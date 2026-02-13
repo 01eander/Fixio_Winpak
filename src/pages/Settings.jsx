@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Moon, Sun, Globe, Database, Upload, Save, CheckCircle, AlertTriangle, Lock, Bell, Info, Shield, Server, Activity } from 'lucide-react';
 import { useStore } from '../hooks/useStore';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Settings() {
     const { currentUserId, role, settings, updateSettings, currentUser, refreshUser } = useStore();
@@ -65,17 +65,21 @@ export default function Settings() {
         setImportStatus(null);
 
         try {
-            const res = await fetch(`${API_URL}/upload-catalog/${importType}`, {
+            const url = `${API_URL}/upload-catalog/${importType}`;
+            console.log("INTENTANDO FETCH A:", url); // DEBUG IMPORTANTE
+
+            const res = await fetch(url, {
                 method: 'POST',
                 body: formData
             });
 
             const data = await res.json();
+            console.log("SERVER RESPONSE DATA:", data); // DEBUG
 
             if (res.ok) {
                 setImportStatus({
                     type: 'success',
-                    message: data.message,
+                    message: data.message || "Mensaje vacío del servidor", // Fallback
                     details: data.errors
                 });
                 setImportFile(null);
@@ -161,7 +165,7 @@ export default function Settings() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-bold text-gradient">Configuraciones</h2>
+            <h2 className="text-2xl font-bold text-gradient">CONFIGURACIONES V2</h2>
 
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Sidebar Navigation */}
@@ -397,6 +401,9 @@ export default function Settings() {
                                         {importStatus.type === 'success' ? 'Importación Exitosa' : 'Error'}
                                     </div>
                                     <p className="text-sm opacity-90">{importStatus.message}</p>
+                                    <pre className="text-xs bg-black/20 p-2 mt-2 rounded overflow-auto max-h-40">
+                                        DEBUG RAW: {JSON.stringify(importStatus, null, 2)}
+                                    </pre>
 
                                     {importStatus.details && importStatus.details.length > 0 && (
                                         <div className="mt-3 pt-3 border-t border-white/10 text-xs">

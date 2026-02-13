@@ -12,7 +12,7 @@ export default function Layout({ children }) {
     const getPhotoUrl = (url) => {
         if (!url) return null;
         if (url.startsWith('http')) return url;
-        return `http://localhost:3000/api${url}`;
+        return `http://localhost:3001/api${url}`;
     };
     const photoUrl = currentUser ? getPhotoUrl(currentUser.photo_url) : null;
 
@@ -83,7 +83,7 @@ export default function Layout({ children }) {
                         alt="App Logo"
                         className="w-full h-auto mb-4 rounded-lg shadow-lg opacity-90"
                     />
-                    <h1 className="text-2xl font-bold text-gradient">Oleander Fixio</h1>
+                    <h1 className="text-2xl font-bold text-gradient">WEM FIX-io</h1>
                     <p className="text-sm text-[var(--text-muted)]">Winpak Maintenance System</p>
                 </div>
 
@@ -126,7 +126,7 @@ export default function Layout({ children }) {
                     <div className="flex items-center gap-4">
                         {/* Mobile App Name */}
                         <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent md:hidden">
-                            Oleander Fixio
+                            WEM FIX-io
                         </h2>
 
                         {/* Desktop Page Title */}

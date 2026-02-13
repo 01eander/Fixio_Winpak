@@ -477,6 +477,105 @@ app.delete('/api/equipment/:id', async (req, res) => {
     }
 });
 
+// --- DIECUT LOGS ---
+app.get('/api/diecut-logs', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT dl.*, e.name as wdc, u1.full_name as ajustador, u2.full_name as operador
+            FROM diecut_logs dl
+            LEFT JOIN equipment e ON dl.equipment_id = e.id
+            LEFT JOIN users u1 ON dl.ajustador_id = u1.id
+            LEFT JOIN users u2 ON dl.operador_id = u2.id
+            ORDER BY dl.fecha DESC, dl.hora_inicio DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/diecut-logs', async (req, res) => {
+    const {
+        equipment_id, fecha, hora_inicio, diametro, troquel,
+        embosser, tipo_falla, causa, tiempo_intervencion,
+        tiempo_paro, comentarios, ajustador_id, operador_id
+    } = req.body;
+    try {
+        const { rows } = await db.query(`
+            INSERT INTO diecut_logs (
+                equipment_id, fecha, hora_inicio, diametro, troquel, 
+                embosser, tipo_falla, causa, tiempo_intervencion, 
+                tiempo_paro, comentarios, ajustador_id, operador_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING *
+        `, [
+            equipment_id,
+            fecha || null,
+            hora_inicio || null,
+            diametro || null,
+            troquel || null,
+            embosser || null,
+            tipo_falla || null,
+            causa || null,
+            tiempo_intervencion || 0,
+            tiempo_paro || 0,
+            comentarios || null,
+            ajustador_id,
+            operador_id
+        ]);
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/conversion-logs', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT cl.*, u.full_name as realizo
+            FROM conversion_logs cl
+            LEFT JOIN users u ON cl.realizo_id = u.id
+            ORDER BY cl.fecha_creacion DESC, cl.hora_inicio DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/conversion-logs', async (req, res) => {
+    const {
+        item, fecha_creacion, fecha_termino, status, area,
+        maquina, seccion, hora_inicio, hora_fin, min_intervencion,
+        min_total_paro, realizo_id, tipo_falla, tipo_accion,
+        cantidad, refaccion, falla, solucion, analisis_falla,
+        opl, comentarios
+    } = req.body;
+    try {
+        const { rows } = await db.query(`
+            INSERT INTO conversion_logs (
+                item, fecha_creacion, fecha_termino, status, area, 
+                maquina, seccion, hora_inicio, hora_fin, min_intervencion, 
+                min_total_paro, realizo_id, tipo_falla, tipo_accion, 
+                cantidad, refaccion, falla, solucion, analisis_falla, 
+                opl, comentarios
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+            )
+            RETURNING *
+        `, [
+            item || null, fecha_creacion || null, fecha_termino || null, status || null, area || null,
+            maquina || null, seccion || null, hora_inicio || null, hora_fin || null, min_intervencion || 0,
+            min_total_paro || 0, realizo_id || null, tipo_falla || null, tipo_accion || null,
+            cantidad || 0, refaccion || null, falla || null, solucion || null, analisis_falla || null,
+            opl || null, comentarios || null
+        ]);
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Legacy asset endpoint for compatibility (redirects to equipment + areas could be complex, maybe keep simple for now or deprecate)
 // For now, let's keep a simple legacy endpoint if needed, but Frontend will switch to /api/equipment
 

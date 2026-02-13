@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Search, Warehouse, MapPin, ArrowLeft, Shield, Plus, X, Save, Edit, Trash2, ClipboardCheck, PackageSearch, CheckCircle, AlertCircle, Wrench } from 'lucide-react';
 import { Link } from 'wouter';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Warehouses() {
     const [warehouses, setWarehouses] = useState([]);
     const [areas, setAreas] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
-    const [formData, setFormData] = useState({ name: '', area_id: '', is_personal: false });
+    const [formData, setFormData] = useState({ name: '', area_id: '', manager_id: '', is_personal: false });
 
     // Surtir Orden states
     const [isSurtirModalOpen, setIsSurtirModalOpen] = useState(false);
@@ -27,6 +28,7 @@ export default function Warehouses() {
         fetchWarehouses();
         fetchAreas();
         fetchMechanics();
+        fetchAllUsers();
     }, []);
 
     const fetchWarehouses = async () => {
@@ -76,13 +78,30 @@ export default function Warehouses() {
         }
     };
 
+    const fetchAllUsers = async () => {
+        try {
+            const response = await fetch(`${API_URL}/users`);
+            if (response.ok) {
+                const data = await response.json();
+                setAllUsers(data);
+            }
+        } catch (error) {
+            console.error('Error fetching all users:', error);
+        }
+    };
+
     const handleOpenModal = (item = null) => {
         if (item) {
             setEditingItem(item);
-            setFormData({ name: item.name, area_id: item.area_id || '', is_personal: item.is_personal || false });
+            setFormData({
+                name: item.name,
+                area_id: item.area_id || '',
+                manager_id: item.manager_id || '',
+                is_personal: item.is_personal || false
+            });
         } else {
             setEditingItem(null);
-            setFormData({ name: '', area_id: '', is_personal: false });
+            setFormData({ name: '', area_id: '', manager_id: '', is_personal: false });
         }
         setIsModalOpen(true);
     };
@@ -300,6 +319,7 @@ export default function Warehouses() {
                             <th className="p-4 w-16">ID</th>
                             <th className="p-4 font-semibold">Almacén</th>
                             <th className="p-4 font-semibold">Ubicación (Área)</th>
+                            <th className="p-4 font-semibold">Responsable</th>
                             <th className="p-4 font-semibold text-center w-40">Acciones</th>
                         </tr>
                     </thead>
@@ -332,6 +352,9 @@ export default function Warehouses() {
                                             <MapPin size={16} />
                                             {item.area_name || 'Sin asignar'}
                                         </div>
+                                    </td>
+                                    <td className="p-4 text-[var(--text-muted)]">
+                                        {item.manager_name || 'Sin asignar'}
                                     </td>
                                     <td className="p-4 text-center flex justify-center gap-2">
                                         <button
@@ -394,6 +417,20 @@ export default function Warehouses() {
                                     <option value="">Seleccionar Área</option>
                                     {areas.map(area => (
                                         <option key={area.id} value={area.id}>{area.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Responsable</label>
+                                <select
+                                    name="manager_id"
+                                    className="w-full bg-[var(--bg-main)] border border-[var(--border-glass)] rounded-lg p-2.5 text-white outline-none focus:border-blue-500 transition-all"
+                                    value={formData.manager_id}
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="">Seleccionar Responsable</option>
+                                    {allUsers.map(user => (
+                                        <option key={user.id} value={user.id}>{user.full_name}</option>
                                     ))}
                                 </select>
                             </div>

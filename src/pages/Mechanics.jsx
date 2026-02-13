@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, Shield, Briefcase, Mail, Phone, Lock, Edit, Trash2, X, Save, ArrowLeft, Warehouse, Clock } from 'lucide-react';
 import { Link } from 'wouter';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Mechanics() {
     const [users, setUsers] = useState([]);

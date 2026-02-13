@@ -3,7 +3,7 @@ import { Search, ArrowLeft, QrCode, FileDown, Plus, X, Save, Edit, Trash2, MapPi
 import { Link } from 'wouter';
 import QrModal from '../components/QrModal';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 export default function Inventory() {
     const [items, setItems] = useState([]);

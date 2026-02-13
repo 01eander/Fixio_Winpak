@@ -1,74 +1,168 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import {
     Search, ArrowLeft, Plus, X, Save, Trash2,
     FileText, Calendar, Clock, PenTool, AlertTriangle, FileDown, Table
 } from 'lucide-react';
 
-const MOCK_DATA = [
-    {
-        id: 1,
-        item: '330',
-        fechaCreacion: '2026-02-06',
-        fechaTermino: '2026-02-06',
-        status: 'CERRADA',
-        area: 'CONVERSION',
-        maquina: 'CH-10',
-        seccion: 'RODILLOS',
-        horaInicio: '10:29',
-        horaFin: '11:15',
-        minIntervencion: '46',
-        minTotalParo: '46',
-        realizo: 'JUAN PEREZ',
-        tipoFalla: 'MECANICA',
-        tipoAccion: 'CORRECTIVA',
-        cantidad: '1',
-        refaccion: 'RODILLO DE ARRASTRE',
-        falla: 'DESGASTE PREMATURO',
-        solucion: 'CAMBIO DE RODILLO',
-        analisisFalla: 'FATIGA DE MATERIAL',
-        opl: 'NO APLICA',
-        comentarios: 'SE RECOMIENDA REVISAR ALINEACION'
-    },
-    {
-        id: 2,
-        item: '331',
-        fechaCreacion: '2026-02-05',
-        fechaTermino: '2026-02-05',
-        status: 'ABIERTA',
-        area: 'EXTRUSION',
-        maquina: 'EXT-02',
-        seccion: 'TOLVA',
-        horaInicio: '08:00',
-        horaFin: '',
-        minIntervencion: '0',
-        minTotalParo: '120',
-        realizo: 'CARLOS LOPEZ',
-        tipoFalla: 'ELECTRICA',
-        tipoAccion: 'PREVENTIVA',
-        cantidad: '0',
-        refaccion: 'N/A',
-        falla: 'SENSOR DAÑADO',
-        solucion: 'EN PROCESO',
-        analisisFalla: 'SOBRECALENTAMIENTO',
-        opl: 'OPL-2026-05',
-        comentarios: 'ESPERANDO REFACCION'
-    }
-];
+const InputField = ({ label, name, type = "text", value, onChange, placeholder }) => (
+    <div className="mb-2">
+        <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">{label}</label>
+        <input
+            type={type}
+            name={name}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={placeholder}
+            className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none"
+        />
+    </div>
+);
+
+const SelectField = ({ label, name, options, value, onChange }) => (
+    <div className="mb-2">
+        <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">{label}</label>
+        <select
+            name={name}
+            value={value || ''}
+            onChange={onChange}
+            className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none"
+        >
+            <option value="">Seleccione...</option>
+            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+    </div>
+);
 
 export default function BitacoraConversion() {
-    const [items, setItems] = useState(MOCK_DATA);
+    const [items, setItems] = useState([]);
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({});
+    const [userOptions, setUserOptions] = useState([]);
+    const [rawUsers, setRawUsers] = useState([]);
+
+    const fetchLogs = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/api/conversion-logs');
+            const data = await res.json();
+            if (Array.isArray(data)) setItems(data);
+        } catch (err) {
+            console.error('Error fetching logs:', err);
+        }
+    };
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            try {
+                fetchLogs();
+                const userRes = await fetch('http://localhost:3001/api/users');
+                const userData = await userRes.json();
+                if (Array.isArray(userData)) {
+                    setRawUsers(userData);
+                    const names = userData.map(u => u.full_name);
+                    setUserOptions([...new Set(names)].sort());
+                }
+            } catch (error) {
+                console.error('Error fetching initial data:', error);
+            }
+        };
+        fetchInitialData();
+    }, []);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+
+        // Time mask logic for HH:MM:SS
+        if (name === 'horaInicio' || name === 'horaFinalizacion') {
+            const digits = value.replace(/\D/g, '').substring(0, 6);
+            let masked = '';
+            if (digits.length > 0) masked += digits.substring(0, 2);
+            if (digits.length > 2) masked += ':' + digits.substring(2, 4);
+            if (digits.length > 4) masked += ':' + digits.substring(4, 6);
+            setFormData(prev => ({ ...prev, [name]: masked }));
+            return;
+        }
+
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSave = async () => {
+        try {
+            const realizoUser = rawUsers.find(u => u.full_name === formData.realizo);
+
+            // Basic validation for time format if provided
+            const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+            if (formData.horaInicio && !timeRegex.test(formData.horaInicio)) {
+                alert('Formato de hora de inicio inválido (HH:MM:SS)');
+                return;
+            }
+            if (formData.horaFinalizacion && !timeRegex.test(formData.horaFinalizacion)) {
+                alert('Formato de hora de fin inválido (HH:MM:SS)');
+                return;
+            }
+
+            const payload = {
+                item: formData.item,
+                fecha_creacion: formData.fechaCreacion,
+                fecha_termino: formData.fechaTermino || null,
+                status: formData.status,
+                area: formData.area,
+                maquina: formData.maquina,
+                seccion: formData.seccion,
+                hora_inicio: formData.horaInicio || null,
+                hora_fin: formData.horaFinalizacion || null,
+                min_intervencion: parseInt(formData.minIntervencion) || 0,
+                min_total_paro: parseInt(formData.minTotalParo) || 0,
+                realizo_id: realizoUser?.id || null,
+                tipo_falla: formData.tipoFalla,
+                tipo_accion: formData.tipoAccion,
+                cantidad: parseInt(formData.cantidad) || 0,
+                refaccion: formData.refaccion,
+                falla: formData.falla,
+                solucion: formData.solucion,
+                analisis_falla: formData.analisisFalla,
+                opl: formData.opl,
+                comentarios: formData.comentarios
+            };
+
+            const res = await fetch('http://localhost:3001/api/conversion-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                setIsModalOpen(false);
+                fetchLogs();
+            } else {
+                const errorData = await res.json();
+                alert('Error al guardar: ' + (errorData.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+            alert('Error de conexión');
+        }
+    };
 
     const handleOpenModal = (item = null) => {
         if (item) {
-            setFormData(item);
+            setFormData({
+                ...item,
+                fechaCreacion: item.fecha_creacion ? item.fecha_creacion.split('T')[0] : '',
+                fechaTermino: item.fecha_termino ? item.fecha_termino.split('T')[0] : '',
+                horaInicio: item.hora_inicio || '',
+                horaFinalizacion: item.hora_fin || '',
+                minIntervencion: item.min_intervencion || '',
+                minTotalParo: item.min_total_paro || '',
+                tipoFalla: item.tipo_falla || '',
+                tipoAccion: item.tipo_accion || '',
+                analisisFalla: item.analisis_falla || ''
+            });
         } else {
             setFormData({
-                item: '', fechaCreacion: '', fechaTermino: '', status: 'ABIERTA',
-                area: '', maquina: '', seccion: '',
+                item: '', fechaCreacion: new Date().toISOString().split('T')[0], fechaTermino: '',
+                status: 'Abierta', area: '', maquina: '', seccion: '',
                 horaInicio: '', horaFinalizacion: '', minIntervencion: '', minTotalParo: '',
                 realizo: '', tipoFalla: '', tipoAccion: '',
                 cantidad: '', refaccion: '', falla: '', solucion: '',
@@ -79,38 +173,16 @@ export default function BitacoraConversion() {
     };
 
     const filteredItems = items.filter(i =>
-        i.item.includes(search) ||
-        i.maquina.toLowerCase().includes(search.toLowerCase()) ||
-        i.falla.toLowerCase().includes(search.toLowerCase())
+        (i.item || '').includes(search) ||
+        (i.maquina || '').toLowerCase().includes(search.toLowerCase()) ||
+        (i.falla || '').toLowerCase().includes(search.toLowerCase())
     );
 
-    const InputField = ({ label, name, type = "text" }) => (
-        <div className="mb-2">
-            <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">{label}</label>
-            <input
-                type={type}
-                name={name}
-                value={formData[name] || ''}
-                onChange={e => setFormData({ ...formData, [name]: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 outline-none"
-            />
-        </div>
-    );
-
-    const SelectField = ({ label, name, options }) => (
-        <div className="mb-2">
-            <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">{label}</label>
-            <select
-                name={name}
-                value={formData[name] || ''}
-                onChange={e => setFormData({ ...formData, [name]: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none"
-            >
-                <option value="">Seleccione...</option>
-                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-        </div>
-    );
+    const maquinaOptions = [
+        'CI8', 'ML2', 'S1DT', 'Doctor Machine', 'Compactadora', 'Flejadora',
+        'Dobladora de placas', 'Cortina Rapida', 'Oficinas', 'WDC-01',
+        'WDC-02', 'WDC-03', 'WDC-04', 'WDC-05', 'Sistema de Vacio'
+    ].sort();
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -182,11 +254,11 @@ export default function BitacoraConversion() {
                             {filteredItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-white/5 transition-colors group">
                                     <td className="p-4 font-mono text-cyan-300 font-bold">#{item.item}</td>
-                                    <td className="p-4 text-slate-300">{item.fechaCreacion}</td>
+                                    <td className="p-4 text-slate-300">{item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleDateString() : ''}</td>
                                     <td className="p-4 font-medium text-white">{item.maquina}</td>
                                     <td className="p-4 text-slate-300 max-w-xs truncate" title={item.falla}>{item.falla}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'CERRADA' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'Cerrada' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
                                             }`}>
                                             {item.status}
                                         </span>
@@ -227,46 +299,73 @@ export default function BitacoraConversion() {
 
                             {/* Column 1 */}
                             <div className="space-y-4">
-                                <InputField label="Item" name="item" />
-                                <InputField label="Fecha Creacion" name="fechaCreacion" type="date" />
-                                <InputField label="Fecha Termino" name="fechaTermino" type="date" />
-                                <SelectField label="Status" name="status" options={['ABIERTA', 'CERRADA', 'PENDIENTE']} />
-                                <SelectField label="Area" name="area" options={['CONVERSION', 'EXTRUSION', 'IMPRESION']} />
-                                <SelectField label="Maquina" name="maquina" options={['CH-10', 'CH-11', 'CH-12', 'EXT-01', 'EXT-02']} />
-                                <SelectField label="Seccion" name="seccion" options={['RODILLOS', 'BOBINADOR', 'PANEL', 'DESBOBINADOR']} />
+                                <InputField label="Item" name="item" value={formData.item} onChange={handleInputChange} />
+                                <InputField label="Fecha Creacion" name="fechaCreacion" type="date" value={formData.fechaCreacion} onChange={handleInputChange} />
+                                <InputField label="Fecha Termino" name="fechaTermino" type="date" value={formData.fechaTermino} onChange={handleInputChange} />
+                                <SelectField label="Status" name="status" options={['Cerrada', 'Abierta']} value={formData.status} onChange={handleInputChange} />
+                                <SelectField label="Area" name="area" options={['Conversion', 'Almacen', 'Infraestructura', 'Diecut', 'Oficinas', 'Pre-Prensa', 'Calidad', 'Osmosis']} value={formData.area} onChange={handleInputChange} />
+                                <SelectField label="Maquina" name="maquina" options={maquinaOptions} value={formData.maquina} onChange={handleInputChange} />
+                                <SelectField label="Seccion" name="seccion" options={['RODILLOS', 'BOBINADOR', 'PANEL', 'DESBOBINADOR']} value={formData.seccion} onChange={handleInputChange} />
                             </div>
 
                             {/* Column 2 */}
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-2">
-                                    <InputField label="Hora Inicio" name="horaInicio" type="time" />
-                                    <InputField label="Hora Fin" name="horaFinalizacion" type="time" />
+                                    <InputField label="Hora Inicio" name="horaInicio" type="text" value={formData.horaInicio} onChange={handleInputChange} placeholder="HH:MM:SS" />
+                                    <InputField label="Hora Fin" name="horaFinalizacion" type="text" value={formData.horaFinalizacion} onChange={handleInputChange} placeholder="HH:MM:SS" />
                                 </div>
-                                <InputField label="Min Intervencion" name="minIntervencion" type="number" />
-                                <InputField label="Min Total Paro" name="minTotalParo" type="number" />
-                                <SelectField label="Realizo" name="realizo" options={['JUAN PEREZ', 'CARLOS LOPEZ', 'ANA MARTINEZ']} />
-                                <SelectField label="Tipo De Falla" name="tipoFalla" options={['MECANICA', 'ELECTRICA', 'NEUMATICA', 'OPERATIVA']} />
-                                <SelectField label="Tipo De Accion" name="tipoAccion" options={['CORRECTIVA', 'PREVENTIVA', 'MEJORA']} />
+                                <InputField label="Min Intervencion" name="minIntervencion" type="number" value={formData.minIntervencion} onChange={handleInputChange} />
+                                <InputField label="Min Total Paro" name="minTotalParo" type="number" value={formData.minTotalParo} onChange={handleInputChange} />
+                                <SelectField label="Realizo" name="realizo" options={userOptions} value={formData.realizo} onChange={handleInputChange} />
+                                <SelectField label="Tipo De Falla" name="tipoFalla" options={['Alarma', 'Mecanica', 'Mecanica/Control', 'Mecanica/Electrica', 'Electrica', 'Programa', 'Sensor', 'Hidraulica', 'Neumatica', 'Control', 'Mecanica/Neumatica']} value={formData.tipoFalla} onChange={handleInputChange} />
+                                <SelectField label="Tipo De Accion" name="tipoAccion" options={['Correctivo', 'Preventivo']} value={formData.tipoAccion} onChange={handleInputChange} />
                             </div>
 
                             {/* Column 3 */}
                             <div className="space-y-4">
-                                <InputField label="Cantidad" name="cantidad" type="number" />
-                                <SelectField label="Refaccion" name="refaccion" options={['RODILLO', 'SENSOR', 'MOTOR', 'N/A']} />
+                                <InputField label="Cantidad" name="cantidad" type="number" value={formData.cantidad} onChange={handleInputChange} />
+                                <SelectField label="Refaccion" name="refaccion" options={[
+                                    'N/A', 'Tornillos de perno 6mm', 'Filtros de aire', 'Tornillo M6 x 70mm', 'Rodillo Lototec',
+                                    'Motor de Inkeys usadas', 'Sensor de posicion home', 'Cable coaxial', 'Rodillo porta-mantillas',
+                                    'Rodillo portaplacas', 'Cable de conexion paralelo inkey reacondicionado', 'Rodamiento 6502',
+                                    'Sensor OMRON E2K-C25MF1', 'Manguera neumatica', 'Tornillos M6 x 110mm', 'Rodillo de formato 8',
+                                    'Rodillo cromado 10', 'Rodillo distribuidor 11', 'Rodillo distribuidor 12', 'Rodillo oscilador 13',
+                                    'Rodillo de formato 14', 'Rodillo de formato 15', 'Rodillo de apoyo 16', 'Rodillo Suminitrador de tinta 1',
+                                    'Rodillo Ductor 2', 'Rodillo oscilador 3', 'Rodillo distribuidor 4', 'Rodillo distribuidor 5',
+                                    'Rodillo distribuidor 6', 'Rodillo oscilador 7'
+                                ]} value={formData.refaccion} onChange={handleInputChange} />
                                 <div className="mb-2">
                                     <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">Falla</label>
-                                    <textarea name="falla" rows="2" className="w-full bg-slate-800 border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none" />
+                                    <textarea
+                                        name="falla"
+                                        rows="2"
+                                        className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none"
+                                        value={formData.falla || ''}
+                                        onChange={handleInputChange}
+                                    />
                                 </div>
                                 <div className="mb-2">
                                     <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">Solucion</label>
-                                    <textarea name="solucion" rows="2" className="w-full bg-slate-800 border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none" />
+                                    <textarea
+                                        name="solucion"
+                                        rows="2"
+                                        className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none"
+                                        value={formData.solucion || ''}
+                                        onChange={handleInputChange}
+                                    />
                                 </div>
                                 <div className="mb-2">
                                     <label className="block text-xs font-bold text-cyan-300 mb-1 uppercase tracking-wide">Analisis de Falla</label>
-                                    <input type="text" name="analisisFalla" className="w-full bg-slate-800 border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none" />
+                                    <input
+                                        type="text"
+                                        name="analisisFalla"
+                                        className="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white text-sm focus:border-cyan-400 outline-none"
+                                        value={formData.analisisFalla || ''}
+                                        onChange={handleInputChange}
+                                    />
                                 </div>
-                                <InputField label="OPL" name="opl" />
-                                <InputField label="Comentarios" name="comentarios" />
+                                <InputField label="OPL" name="opl" value={formData.opl} onChange={handleInputChange} />
+                                <InputField label="Comentarios" name="comentarios" value={formData.comentarios} onChange={handleInputChange} />
                             </div>
                         </div>
 
@@ -279,7 +378,7 @@ export default function BitacoraConversion() {
                                 Cancelar
                             </button>
                             <button
-                                onClick={() => setIsModalOpen(false)}
+                                onClick={handleSave}
                                 className="px-8 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-2 transition-all transform hover:scale-105"
                             >
                                 <Save size={18} /> Guardar

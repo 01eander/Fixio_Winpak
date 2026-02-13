@@ -10,7 +10,7 @@ export function StoreProvider({ children }) {
     const [dbUsers, setDbUsers] = useState([]);
 
     useEffect(() => {
-        fetch('http://localhost:3000/api/users')
+        fetch('http://localhost:3001/api/users')
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setDbUsers(data);
@@ -30,7 +30,7 @@ export function StoreProvider({ children }) {
     const refreshUser = async () => {
         if (!currentUserId) return;
         try {
-            const res = await fetch(`http://localhost:3000/api/users/${currentUserId}`);
+            const res = await fetch(`http://localhost:3001/api/users/${currentUserId}`);
             const data = await res.json();
             if (data && !data.error) setCurrentUser(data);
         } catch (err) {
@@ -47,7 +47,7 @@ export function StoreProvider({ children }) {
 
     useEffect(() => {
         if (currentUserId) {
-            fetch(`http://localhost:3000/api/user-settings/${currentUserId}`)
+            fetch(`http://localhost:3001/api/user-settings/${currentUserId}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && !data.error) {
@@ -83,7 +83,7 @@ export function StoreProvider({ children }) {
         }
 
         try {
-            await fetch(`http://localhost:3000/api/user-settings/${currentUserId}`, {
+            await fetch(`http://localhost:3001/api/user-settings/${currentUserId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newSettings)
